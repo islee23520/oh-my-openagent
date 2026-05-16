@@ -215,7 +215,7 @@ async function fetchContextWindowUsage(
 				)
 				: null;
 
-		if (!actualLimit) return null;
+		if (actualLimit === null) return null;
 
 		const usedTokens =
 			(lastTokens?.input ?? 0) +

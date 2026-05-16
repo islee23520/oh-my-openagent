@@ -3,6 +3,7 @@
 import { describe, expect, it, afterEach } from "bun:test"
 
 import { getContextWindowUsage, invalidateContextWindowUsageCache } from "./dynamic-truncator"
+import { UNKNOWN_PROVIDER_CONTEXT_LIMIT_FALLBACK } from "./context-limit-resolver"
 
 const ANTHROPIC_CONTEXT_ENV_KEY = "ANTHROPIC_1M_CONTEXT"
 const VERTEX_CONTEXT_ENV_KEY = "VERTEX_ANTHROPIC_1M_CONTEXT"
@@ -191,7 +192,7 @@ describe("getContextWindowUsage", () => {
     expect(getMessagesCalls()).toBe(2)
   })
 
-  it("returns null for non-anthropic providers without a cached limit", async () => {
+  it("uses conservative fallback limit for non-anthropic providers without a cached limit", async () => {
     // given
     const ctx = createContextUsageMockContext(180000, {
       providerID: "openai",
@@ -204,7 +205,9 @@ describe("getContextWindowUsage", () => {
     })
 
     // then
-    expect(usage).toBeNull()
+    expect(usage).not.toBeNull()
+    expect(usage?.usagePercentage).toBeCloseTo(180000 / UNKNOWN_PROVIDER_CONTEXT_LIMIT_FALLBACK)
+    expect(usage?.remainingTokens).toBe(UNKNOWN_PROVIDER_CONTEXT_LIMIT_FALLBACK - 180000)
   })
 
   describe("#given Anthropic provider with cached context limit and 1M mode enabled", () => {
