@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import {
+  createCopilotRecoveryHook,
   createRecoveryHook,
   executeCompactMock,
   getLastAssistantMock,
+  getProviderFamilyMock,
   parseAnthropicTokenLimitErrorMock,
   setupDelayedTimeoutMocks,
 } from "./recovery-hook.test-support"
@@ -12,6 +14,7 @@ describe("createAnthropicContextWindowLimitRecoveryHook", () => {
     executeCompactMock.mockClear()
     getLastAssistantMock.mockClear()
     parseAnthropicTokenLimitErrorMock.mockClear()
+    getProviderFamilyMock.mockClear()
   })
 
   afterEach(() => {
@@ -133,6 +136,125 @@ describe("createAnthropicContextWindowLimitRecoveryHook", () => {
     } finally {
       restore()
     }
+  })
+
+  describe("provider family gating", () => {
+    test("#given Anthropic provider error #when session.error fires #then executeCompact is scheduled", async () => {
+      //#given
+      const { restore } = setupDelayedTimeoutMocks()
+      const hook = createRecoveryHook()
+
+      try {
+        //#when
+        await hook.event({
+          event: {
+            type: "session.error",
+            properties: { sessionID: "session-anthropic", error: "prompt is too long" },
+          },
+        })
+
+        //#then
+        expect(executeCompactMock).not.toHaveBeenCalled()
+      } finally {
+        restore()
+      }
+    })
+
+    test("#given Anthropic provider error #when session.idle fires #then executeCompact is called", async () => {
+      //#given
+      const hook = createRecoveryHook()
+
+      //#when
+      await hook.event({
+        event: {
+          type: "session.error",
+          properties: { sessionID: "session-anthropic-idle", error: "prompt is too long" },
+        },
+      })
+
+      await hook.event({
+        event: {
+          type: "session.idle",
+          properties: { sessionID: "session-anthropic-idle" },
+        },
+      })
+
+      //#then
+      expect(executeCompactMock).toHaveBeenCalledTimes(1)
+      expect(executeCompactMock.mock.calls[0][0]).toBe("session-anthropic-idle")
+    })
+
+    test("#given github-copilot provider error #when session.error fires #then executeCompact is not scheduled", async () => {
+      //#given
+      const { restore } = setupDelayedTimeoutMocks()
+      const { hook } = createCopilotRecoveryHook()
+
+      try {
+        //#when
+        await hook.event({
+          event: {
+            type: "session.error",
+            properties: { sessionID: "session-copilot", error: "prompt is too long" },
+          },
+        })
+
+        //#then
+        expect(executeCompactMock).not.toHaveBeenCalled()
+      } finally {
+        restore()
+      }
+    })
+
+    test("#given github-copilot provider error #when session.idle fires #then executeCompact is not called", async () => {
+      //#given
+      const { hook } = createCopilotRecoveryHook()
+
+      //#when
+      await hook.event({
+        event: {
+          type: "session.error",
+          properties: { sessionID: "session-copilot-idle", error: "prompt is too long" },
+        },
+      })
+
+      await hook.event({
+        event: {
+          type: "session.idle",
+          properties: { sessionID: "session-copilot-idle" },
+        },
+      })
+
+      //#then
+      expect(executeCompactMock).not.toHaveBeenCalled()
+    })
+
+    test("#given github-copilot provider error #when session.error fires #then pending state is cleared to avoid retry loops", async () => {
+      //#given
+      const { restore } = setupDelayedTimeoutMocks()
+      const { hook } = createCopilotRecoveryHook()
+
+      try {
+        //#when
+        await hook.event({
+          event: {
+            type: "session.error",
+            properties: { sessionID: "session-copilot-clear", error: "prompt is too long" },
+          },
+        })
+
+        await hook.event({
+          event: {
+            type: "session.idle",
+            properties: { sessionID: "session-copilot-clear" },
+          },
+        })
+
+        //#then
+        expect(executeCompactMock).not.toHaveBeenCalled()
+      } finally {
+        restore()
+      }
+    })
   })
 
 })

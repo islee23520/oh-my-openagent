@@ -2,10 +2,12 @@ import { mock } from "bun:test"
 import type { PluginInput } from "@opencode-ai/plugin"
 import type { OhMyOpenCodeConfig } from "../../config"
 import { createAnthropicContextWindowLimitRecoveryHook } from "./recovery-hook"
+import type { getProviderFamily } from "../../shared/context-budget/provider-capability-registry"
 
 type ExecuteCompactFn = typeof import("./executor").executeCompact
 type GetLastAssistantFn = typeof import("./executor").getLastAssistant
 type ParseAnthropicTokenLimitErrorFn = typeof import("./parser").parseAnthropicTokenLimitError
+type GetProviderFamilyFn = typeof getProviderFamily
 
 export type MockLastAssistant = {
   info: {
@@ -31,6 +33,11 @@ export const parseAnthropicTokenLimitErrorMock = mock<ParseAnthropicTokenLimitEr
   providerID: "anthropic",
   modelID: "claude-sonnet-4-6",
 }))
+export const getProviderFamilyMock = mock<GetProviderFamilyFn>((providerID: string) => {
+  if (providerID === "github-copilot" || providerID === "copilot") return "github-copilot"
+  if (providerID === "anthropic") return "anthropic"
+  return "unknown"
+})
 
 const pluginConfig = {
   git_master: {
@@ -50,9 +57,44 @@ export function createRecoveryHook() {
         getLastAssistant: getLastAssistantMock,
         log: () => {},
         parseAnthropicTokenLimitError: parseAnthropicTokenLimitErrorMock,
+        getProviderFamily: getProviderFamilyMock,
       },
     } as never,
   )
+}
+
+export function createCopilotRecoveryHook() {
+  const copilotParseErrorMock = mock<ParseAnthropicTokenLimitErrorFn>(() => ({
+    currentTokens: 60000,
+    maxTokens: 64000,
+    errorType: "token_limit_exceeded",
+    providerID: "github-copilot",
+    modelID: "gpt-4o",
+  }))
+  const copilotLastAssistantMock = mock<GetLastAssistantFn>(async (): Promise<MockLastAssistant> => ({
+    info: {
+      providerID: "github-copilot",
+      modelID: "gpt-4o",
+    },
+    hasContent: true,
+  }))
+  return {
+    hook: createAnthropicContextWindowLimitRecoveryHook(
+      createMockContext(),
+      {
+        pluginConfig,
+        dependencies: {
+          executeCompact: executeCompactMock,
+          getLastAssistant: copilotLastAssistantMock,
+          log: () => {},
+          parseAnthropicTokenLimitError: copilotParseErrorMock,
+          getProviderFamily: getProviderFamilyMock,
+        },
+      } as never,
+    ),
+    copilotParseErrorMock,
+    copilotLastAssistantMock,
+  }
 }
 
 export function createMockContext(): PluginInput {

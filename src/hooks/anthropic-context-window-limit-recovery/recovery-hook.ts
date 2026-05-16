@@ -9,6 +9,7 @@ import { clearSessionState } from "./state"
 import { clearAllSessionTimeouts, clearSessionTimeout } from "./session-timeout-map"
 import { resolveMessageEventSessionID, resolveSessionEventID } from "../../shared/event-session-id"
 import { log } from "../../shared/logger"
+import { getProviderFamily } from "../../shared/context-budget/provider-capability-registry"
 
 export interface AnthropicContextWindowLimitRecoveryOptions {
   experimental?: ExperimentalConfig
@@ -18,7 +19,13 @@ export interface AnthropicContextWindowLimitRecoveryOptions {
     getLastAssistant?: typeof getLastAssistant
     log?: typeof log
     parseAnthropicTokenLimitError?: typeof parseAnthropicTokenLimitError
+    getProviderFamily?: typeof getProviderFamily
   }
+}
+
+function isNonAnthropicProvider(providerID: string | undefined, getFamily: typeof getProviderFamily): boolean {
+  if (!providerID) return false
+  return getFamily(providerID) !== "anthropic"
 }
 
 function createRecoveryState(): AutoCompactState {
@@ -46,6 +53,7 @@ export function createAnthropicContextWindowLimitRecoveryHook(
     getLastAssistant,
     log,
     parseAnthropicTokenLimitError,
+    getProviderFamily,
     ...options?.dependencies,
   }
   const pendingCompactionTimeoutBySession = new Map<string, ReturnType<typeof setTimeout>>()
@@ -87,6 +95,16 @@ export function createAnthropicContextWindowLimitRecoveryHook(
         const lastAssistantInfo = lastAssistant?.info
         const providerID = parsed.providerID ?? (lastAssistantInfo?.providerID as string | undefined)
         const modelID = parsed.modelID ?? (lastAssistantInfo?.modelID as string | undefined)
+
+        if (isNonAnthropicProvider(providerID, dependencies.getProviderFamily)) {
+          dependencies.log("[auto-compact] skipping Anthropic recovery for non-Anthropic provider", {
+            sessionID,
+            providerID,
+            family: providerID ? dependencies.getProviderFamily(providerID) : "unknown",
+          })
+          clearSessionState(autoCompactState, sessionID)
+          return
+        }
 
         await ctx.client.tui
           .showToast({
@@ -160,6 +178,16 @@ export function createAnthropicContextWindowLimitRecoveryHook(
 
       const providerID = errorData?.providerID ?? (lastAssistantInfo?.providerID as string | undefined)
       const modelID = errorData?.modelID ?? (lastAssistantInfo?.modelID as string | undefined)
+
+      if (isNonAnthropicProvider(providerID, dependencies.getProviderFamily)) {
+        dependencies.log("[auto-compact] skipping Anthropic recovery on idle for non-Anthropic provider", {
+          sessionID,
+          providerID,
+          family: providerID ? dependencies.getProviderFamily(providerID) : "unknown",
+        })
+        clearSessionState(autoCompactState, sessionID)
+        return
+      }
 
       await ctx.client.tui
         .showToast({

@@ -314,10 +314,10 @@ describe("context-window-monitor", () => {
     expect(output.output).toBe("test")
   })
 
-  // #given non-anthropic provider
+  // #given non-anthropic provider without an explicit cached limit
   // #when message.updated fires
-  // #then should not trigger reminder
-  it("should ignore non-anthropic providers", async () => {
+  // #then should use conservative fallback budget for reminder
+  it("should warn for non-anthropic providers using the conservative fallback", async () => {
     const hook = createContextWindowMonitorHook(ctx as never)
     const sessionID = "ses_openai"
 
@@ -341,7 +341,9 @@ describe("context-window-monitor", () => {
       { tool: "bash", sessionID, callID: "call_1" },
       output
     )
-    expect(output.output).toBe("test")
+    expect(output.output).toContain("test")
+    expect(output.output).toContain("32,000-token context window")
+    expect(output.output).toContain("100.0% used")
   })
 
   it("should use 1M limit when model cache flag is enabled", async () => {
