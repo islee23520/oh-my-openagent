@@ -1,15 +1,25 @@
 import type {
+  BudgetedPendingContext,
   ContextEntry,
   ContextPriority,
   PendingContext,
   RegisterContextOptions,
 } from "./types"
+import { processIngress } from "../../shared/context-budget"
+import type { ContextBudget } from "../../shared/context-budget"
 
 const PRIORITY_ORDER: Record<ContextPriority, number> = {
   critical: 0,
   high: 1,
   normal: 2,
   low: 3,
+}
+
+const PRIORITY_INGRESS_WEIGHT: Record<ContextPriority, number> = {
+  critical: 4,
+  high: 3,
+  normal: 2,
+  low: 1,
 }
 
 const CONTEXT_SEPARATOR = "\n\n---\n\n"
@@ -57,6 +67,48 @@ export class ContextCollector {
       merged,
       entries,
       hasContent: entries.length > 0,
+    }
+  }
+
+  getBudgetedPending(sessionID: string, budget: ContextBudget): BudgetedPendingContext {
+    const sessionMap = this.sessions.get(sessionID)
+
+    if (!sessionMap || sessionMap.size === 0) {
+      return {
+        merged: "",
+        acceptedEntries: [],
+        hasContent: false,
+        ingressResults: [],
+      }
+    }
+
+    const entries = this.sortEntries([...sessionMap.values()])
+
+    const ingressItems = entries.map((entry) => ({
+      id: `${entry.source}:${entry.id}`,
+      content: entry.content,
+      priority: PRIORITY_INGRESS_WEIGHT[entry.priority],
+    }))
+
+    const summary = processIngress(ingressItems, budget)
+
+    const acceptedIds = new Set(
+      summary.results.filter((r) => r.decision === "accept").map((r) => r.id)
+    )
+
+    const acceptedEntries = entries.filter((e) => acceptedIds.has(`${e.source}:${e.id}`))
+
+    const acceptedContents = summary.results
+      .filter((r) => r.acceptedContent.length > 0)
+      .map((r) => r.acceptedContent)
+
+    const merged = acceptedContents.join(CONTEXT_SEPARATOR)
+
+    return {
+      merged,
+      acceptedEntries,
+      hasContent: merged.length > 0,
+      ingressResults: summary.results,
     }
   }
 

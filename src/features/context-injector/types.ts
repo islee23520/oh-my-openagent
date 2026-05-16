@@ -1,3 +1,5 @@
+import type { IngressResult } from "../../shared/context-budget"
+
 /**
  * Source identifier for context injection
  * Each source registers context that will be merged and injected together
@@ -89,3 +91,18 @@ export interface OutputParts {
  * Injection strategy
  */
 export type InjectionStrategy = "prepend-parts" | "storage" | "auto"
+
+/**
+ * Result of getting budget-bounded pending context for a session.
+ * Entries that exceeded the budget are dropped or truncated per ingress semantics.
+ */
+export interface BudgetedPendingContext {
+  /** Merged context string containing only accepted/truncated content */
+  merged: string
+  /** Entries that were fully accepted within budget */
+  acceptedEntries: ContextEntry[]
+  /** Whether there's any content to inject */
+  hasContent: boolean
+  /** Per-entry ingress decisions (accept / truncate / drop) */
+  ingressResults: IngressResult[]
+}

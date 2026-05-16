@@ -165,4 +165,28 @@ describe("createContextInjectorMessagesTransformHook", () => {
     // then
     expect(collector.hasPending(sessionID)).toBe(false)
   })
+
+  it("injects only budgeted pending context for unknown providers", async () => {
+    // given
+    const hook = createContextInjectorMessagesTransformHook(collector)
+    const sessionID = "ses_transform_budgeted"
+    collector.register(sessionID, {
+      id: "large-hook-output",
+      source: "custom",
+      content: "x".repeat(140_000),
+    })
+    const messages = [createMockMessage("user", "Message", sessionID)]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const output = unsafeTestValue({ messages })
+
+    // when
+    await hook["experimental.chat.messages.transform"]!({}, output)
+
+    // then
+    const injectedText = output.messages[0].parts[0].text
+    expect(injectedText.length).toBeLessThan(140_000)
+    expect(injectedText).toContain("[Context budget:")
+    expect(injectedText).toContain("truncated")
+    expect(collector.hasPending(sessionID)).toBe(false)
+  })
 })

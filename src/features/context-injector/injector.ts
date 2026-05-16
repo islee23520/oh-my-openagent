@@ -1,6 +1,8 @@
 import type { ContextCollector } from "./collector"
 import type { Message, Part } from "@opencode-ai/sdk"
 import { log } from "../../shared"
+import { createContextBudget } from "../../shared/context-budget"
+import { resolveActualContextLimit } from "../../shared/context-limit-resolver"
 import { getMainSessionID } from "../claude-code-session-state"
 
 interface OutputPart {
@@ -17,7 +19,8 @@ interface InjectionResult {
 export function injectPendingContext(
   collector: ContextCollector,
   sessionID: string,
-  parts: OutputPart[]
+  parts: OutputPart[],
+  model: { providerID?: string; modelID?: string } = {},
 ): InjectionResult {
   if (!collector.hasPending(sessionID)) {
     return { injected: false, contextLength: 0 }
@@ -28,9 +31,20 @@ export function injectPendingContext(
     return { injected: false, contextLength: 0 }
   }
 
-  const pending = collector.consume(sessionID)
+  const providerID = model.providerID ?? "unknown"
+  const modelID = model.modelID ?? "unknown"
+  const contextLimit = resolveActualContextLimit(providerID, modelID)
+  const budget = createContextBudget({
+    limits: { providerID, modelID, contextLimit },
+  })
+  const pending = collector.getBudgetedPending(sessionID, budget)
+  collector.clear(sessionID)
+  if (!pending.hasContent) {
+    return { injected: false, contextLength: 0 }
+  }
+
   const originalText = parts[textPartIndex].text ?? ""
-  parts[textPartIndex].text = `${pending.merged}\n\n---\n\n${originalText}`
+  parts[textPartIndex].text = `${pending.merged}${formatBudgetNotice(pending.ingressResults)}\n\n---\n\n${originalText}`
 
   return {
     injected: true,
@@ -56,7 +70,7 @@ export function createContextInjectorHook(collector: ContextCollector) {
       input: ChatMessageInput,
       output: ChatMessageOutput
     ): Promise<void> => {
-      const result = injectPendingContext(collector, input.sessionID, output.parts)
+      const result = injectPendingContext(collector, input.sessionID, output.parts, input.model)
       if (result.injected) {
         log("[context-injector] Injected pending context via chat.message", {
           sessionID: input.sessionID,
@@ -85,6 +99,28 @@ function getSessionIDFromMessageInfo(info: Message): string | undefined {
 
 function hasText(part: Part): boolean {
   return "text" in part && typeof part.text === "string" && part.text.length > 0
+}
+
+function resolveMessageModel(info: Message): { providerID: string; modelID: string } {
+  const modelInfo = info as Message & {
+    model?: { providerID?: string; modelID?: string }
+    providerID?: string
+    modelID?: string
+  }
+  return {
+    providerID: modelInfo.model?.providerID ?? modelInfo.providerID ?? "unknown",
+    modelID: modelInfo.model?.modelID ?? modelInfo.modelID ?? "unknown",
+  }
+}
+
+function formatBudgetNotice(ingressResults: Array<{ decision: string }>): string {
+  const truncated = ingressResults.filter((result) => result.decision === "truncate").length
+  const dropped = ingressResults.filter((result) => result.decision === "drop").length
+  if (truncated === 0 && dropped === 0) {
+    return ""
+  }
+
+  return `\n\n[Context budget: ${truncated} item(s) truncated, ${dropped} item(s) dropped to fit provider context budget]`
 }
 
 export function createContextInjectorMessagesTransformHook(
@@ -136,7 +172,13 @@ export function createContextInjectorMessagesTransformHook(
         return
       }
 
-      const pending = collector.consume(sessionID)
+      const model = resolveMessageModel(lastUserMessage.info)
+      const contextLimit = resolveActualContextLimit(model.providerID, model.modelID)
+      const budget = createContextBudget({
+        limits: { ...model, contextLimit },
+      })
+      const pending = collector.getBudgetedPending(sessionID, budget)
+      collector.clear(sessionID)
       if (!pending.hasContent) {
         return
       }
@@ -159,7 +201,7 @@ export function createContextInjectorMessagesTransformHook(
         messageID: lastUserMessage.info.id,
         sessionID: messageSessionID ?? "",
         type: "text" as const,
-        text: pending.merged,
+        text: `${pending.merged}${formatBudgetNotice(pending.ingressResults)}`,
         synthetic: true,  // hidden in UI
       }
 

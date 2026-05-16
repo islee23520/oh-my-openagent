@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import { ContextCollector } from "./collector"
-import type { ContextPriority, ContextSourceType } from "./types"
+import type { ContextSourceType } from "./types"
+import { createContextBudget } from "../../shared/context-budget"
 
 describe("ContextCollector", () => {
   let collector: ContextCollector
@@ -364,6 +365,198 @@ describe("ContextCollector", () => {
 
       // then
       expect(collector.hasPending(sessionID)).toBe(false)
+    })
+  })
+
+  describe("getBudgetedPending", () => {
+    it("returns empty result for session with no context", () => {
+      // given
+      const sessionID = "ses_budget_empty"
+      const budget = createContextBudget({
+        limits: { providerID: "test", modelID: "test", contextLimit: 10_000 },
+      })
+
+      // when
+      const result = collector.getBudgetedPending(sessionID, budget)
+
+      // then
+      expect(result.hasContent).toBe(false)
+      expect(result.acceptedEntries).toHaveLength(0)
+      expect(result.merged).toBe("")
+      expect(result.ingressResults).toHaveLength(0)
+    })
+
+    it("accepts all entries when total fits within budget", () => {
+      // given
+      const sessionID = "ses_budget_all_fit"
+      const budget = createContextBudget({
+        limits: { providerID: "test", modelID: "test", contextLimit: 10_000 },
+      })
+      collector.register(sessionID, {
+        id: "ctx-1",
+        source: "keyword-detector",
+        content: "Short content A",
+      })
+      collector.register(sessionID, {
+        id: "ctx-2",
+        source: "rules-injector",
+        content: "Short content B",
+      })
+
+      // when
+      const result = collector.getBudgetedPending(sessionID, budget)
+
+      // then
+      expect(result.hasContent).toBe(true)
+      expect(result.acceptedEntries).toHaveLength(2)
+      expect(result.merged).toContain("Short content A")
+      expect(result.merged).toContain("Short content B")
+      expect(result.ingressResults.every((r) => r.decision === "accept")).toBe(true)
+    })
+
+    it("drops low-priority entries when budget is exceeded", () => {
+      // given
+      const budget = createContextBudget({
+        limits: { providerID: "test", modelID: "test", contextLimit: 1_600 },
+        safetyMarginTokens: 100,
+      })
+      // 1500 available tokens; each entry is 2000 chars = 500 tokens; only 3 fit
+      const sessionID = "ses_budget_drop"
+      const bigContent = "x".repeat(2000)
+      collector.register(sessionID, {
+        id: "critical-ctx",
+        source: "keyword-detector",
+        content: bigContent,
+        priority: "critical",
+      })
+      collector.register(sessionID, {
+        id: "high-ctx",
+        source: "keyword-detector",
+        content: bigContent,
+        priority: "high",
+      })
+      collector.register(sessionID, {
+        id: "normal-ctx",
+        source: "rules-injector",
+        content: bigContent,
+        priority: "normal",
+      })
+      collector.register(sessionID, {
+        id: "low-ctx",
+        source: "rules-injector",
+        content: bigContent,
+        priority: "low",
+      })
+
+      // when
+      const result = collector.getBudgetedPending(sessionID, budget)
+
+      // then
+      const decisions = result.ingressResults.map((r) => r.decision)
+      expect(decisions).toContain("accept")
+      expect(decisions).toContain("drop")
+      const droppedIds = result.ingressResults
+        .filter((r) => r.decision === "drop")
+        .map((r) => r.id)
+      expect(droppedIds.some((id) => id.includes("low-ctx"))).toBe(true)
+    })
+
+    it("truncates an entry that partially fits the remaining budget", () => {
+      // given
+      const sessionID = "ses_budget_truncate"
+      // 500 tokens available = 2000 chars
+      const budget = createContextBudget({
+        limits: { providerID: "test", modelID: "test", contextLimit: 600 },
+        safetyMarginTokens: 100,
+      })
+      // first entry: 100 chars = 25 tokens (fits)
+      // second entry: 2000 chars = 500 tokens (exceeds remaining ~475 tokens, gets truncated)
+      collector.register(sessionID, {
+        id: "small",
+        source: "keyword-detector",
+        content: "a".repeat(100),
+        priority: "critical",
+      })
+      collector.register(sessionID, {
+        id: "large",
+        source: "rules-injector",
+        content: "b".repeat(2000),
+        priority: "high",
+      })
+
+      // when
+      const result = collector.getBudgetedPending(sessionID, budget)
+
+      // then
+      const largeResult = result.ingressResults.find((r) => r.id.includes("large"))
+      expect(largeResult).toBeDefined()
+      expect(largeResult!.decision).toBe("truncate")
+      expect(largeResult!.acceptedContent.length).toBeLessThan(2000)
+      expect(result.merged).toContain("a".repeat(100))
+    })
+
+    it("preserves source:id deduplication (same key = one entry)", () => {
+      // given
+      const sessionID = "ses_budget_dedup"
+      const budget = createContextBudget({
+        limits: { providerID: "test", modelID: "test", contextLimit: 10_000 },
+      })
+      collector.register(sessionID, {
+        id: "ctx",
+        source: "keyword-detector",
+        content: "First",
+      })
+      collector.register(sessionID, {
+        id: "ctx",
+        source: "keyword-detector",
+        content: "Updated",
+      })
+
+      // when
+      const result = collector.getBudgetedPending(sessionID, budget)
+
+      // then
+      expect(result.ingressResults).toHaveLength(1)
+      expect(result.merged).toBe("Updated")
+    })
+
+    it("preserves critical > high > normal > low ordering in ingressResults", () => {
+      // given
+      const sessionID = "ses_budget_priority_order"
+      const budget = createContextBudget({
+        limits: { providerID: "test", modelID: "test", contextLimit: 10_000 },
+      })
+      collector.register(sessionID, { id: "low", source: "custom", content: "LOW", priority: "low" })
+      collector.register(sessionID, { id: "critical", source: "custom", content: "CRITICAL", priority: "critical" })
+      collector.register(sessionID, { id: "normal", source: "custom", content: "NORMAL", priority: "normal" })
+      collector.register(sessionID, { id: "high", source: "custom", content: "HIGH", priority: "high" })
+
+      // when
+      const result = collector.getBudgetedPending(sessionID, budget)
+
+      // then
+      const acceptedOrder = result.acceptedEntries.map((e) => e.priority)
+      expect(acceptedOrder).toEqual(["critical", "high", "normal", "low"])
+    })
+
+    it("does not affect registered entries (non-destructive read)", () => {
+      // given
+      const sessionID = "ses_budget_nondestructive"
+      const budget = createContextBudget({
+        limits: { providerID: "test", modelID: "test", contextLimit: 10_000 },
+      })
+      collector.register(sessionID, {
+        id: "ctx",
+        source: "keyword-detector",
+        content: "test",
+      })
+
+      // when
+      collector.getBudgetedPending(sessionID, budget)
+
+      // then
+      expect(collector.hasPending(sessionID)).toBe(true)
+      expect(collector.getPending(sessionID).hasContent).toBe(true)
     })
   })
 })
