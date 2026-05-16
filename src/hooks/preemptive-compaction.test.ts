@@ -797,6 +797,199 @@ describe("preemptive-compaction", () => {
     expect(ctx.client.session.summarize).toHaveBeenCalled()
   })
 
+  // #given successful compaction followed by reinjection (message.updated clears compactedSessions)
+  // #when tool.execute.after is called immediately after reinjection
+  // #then circuit breaker should suppress the second compaction
+  it("should suppress immediate re-compaction after successful compaction via circuit breaker", async () => {
+    //#given
+    const hook = createPreemptiveCompactionHook(ctx as never, {} as never)
+    const sessionID = "ses_circuit_breaker"
+
+    await hook.event({
+      event: {
+        type: "message.updated",
+        properties: {
+          info: {
+            role: "assistant",
+            sessionID,
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4-6",
+            finish: true,
+            tokens: {
+              input: 170000,
+              output: 0,
+              reasoning: 0,
+              cache: { read: 10000, write: 0 },
+            },
+          },
+        },
+      },
+    })
+
+    await hook["tool.execute.after"](
+      { tool: "bash", sessionID, callID: "call_1" },
+      { title: "", output: "test", metadata: null }
+    )
+
+    expect(ctx.client.session.summarize).toHaveBeenCalledTimes(1)
+
+    //#when - reinjection fires message.updated (clears compactedSessions), then tool runs immediately
+    await hook.event({
+      event: {
+        type: "message.updated",
+        properties: {
+          info: {
+            role: "assistant",
+            sessionID,
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4-6",
+            finish: true,
+            tokens: {
+              input: 170000,
+              output: 0,
+              reasoning: 0,
+              cache: { read: 10000, write: 0 },
+            },
+          },
+        },
+      },
+    })
+
+    await hook["tool.execute.after"](
+      { tool: "bash", sessionID, callID: "call_2" },
+      { title: "", output: "test", metadata: null }
+    )
+
+    //#then - circuit breaker suppresses the second compaction
+    expect(ctx.client.session.summarize).toHaveBeenCalledTimes(1)
+  })
+
+  // #given successful compaction, reinjection, then cooldown elapsed
+  // #when tool.execute.after is called after cooldown
+  // #then circuit breaker should allow compaction again
+  it("should allow re-compaction after circuit breaker cooldown expires", async () => {
+    //#given
+    const hook = createPreemptiveCompactionHook(ctx as never, {} as never)
+    const sessionID = "ses_circuit_breaker_expired"
+
+    await hook.event({
+      event: {
+        type: "message.updated",
+        properties: {
+          info: {
+            role: "assistant",
+            sessionID,
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4-6",
+            finish: true,
+            tokens: {
+              input: 170000,
+              output: 0,
+              reasoning: 0,
+              cache: { read: 10000, write: 0 },
+            },
+          },
+        },
+      },
+    })
+
+    await hook["tool.execute.after"](
+      { tool: "bash", sessionID, callID: "call_1" },
+      { title: "", output: "test", metadata: null }
+    )
+
+    expect(ctx.client.session.summarize).toHaveBeenCalledTimes(1)
+
+    //#when - advance past cooldown, then reinjection + tool
+    const originalNow = Date.now
+    Date.now = () => originalNow() + 61_000
+    try {
+      await hook.event({
+        event: {
+          type: "message.updated",
+          properties: {
+            info: {
+              role: "assistant",
+              sessionID,
+              providerID: "anthropic",
+              modelID: "claude-sonnet-4-6",
+              finish: true,
+              tokens: {
+                input: 170000,
+                output: 0,
+                reasoning: 0,
+                cache: { read: 10000, write: 0 },
+              },
+            },
+          },
+        },
+      })
+
+      await hook["tool.execute.after"](
+        { tool: "bash", sessionID, callID: "call_2" },
+        { title: "", output: "test", metadata: null }
+      )
+
+      //#then - circuit breaker expired, compaction fires again
+      expect(ctx.client.session.summarize).toHaveBeenCalledTimes(2)
+    } finally {
+      Date.now = originalNow
+    }
+  })
+
+  // #given successful compaction and circuit breaker active
+  // #when session.deleted fires
+  // #then circuit breaker should be cleared (no state leak)
+  it("should clear circuit breaker state on session.deleted", async () => {
+    //#given
+    const hook = createPreemptiveCompactionHook(ctx as never, {} as never)
+    const sessionID = "ses_circuit_breaker_deleted"
+
+    await hook.event({
+      event: {
+        type: "message.updated",
+        properties: {
+          info: {
+            role: "assistant",
+            sessionID,
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4-6",
+            finish: true,
+            tokens: {
+              input: 170000,
+              output: 0,
+              reasoning: 0,
+              cache: { read: 10000, write: 0 },
+            },
+          },
+        },
+      },
+    })
+
+    await hook["tool.execute.after"](
+      { tool: "bash", sessionID, callID: "call_1" },
+      { title: "", output: "test", metadata: null }
+    )
+
+    expect(ctx.client.session.summarize).toHaveBeenCalledTimes(1)
+
+    //#when - session deleted, then new session with same ID starts fresh
+    await hook.event({
+      event: {
+        type: "session.deleted",
+        properties: { info: { id: sessionID } },
+      },
+    })
+
+    //#then - after deletion, no further compaction should fire (no token cache)
+    await hook["tool.execute.after"](
+      { tool: "bash", sessionID, callID: "call_2" },
+      { title: "", output: "test", metadata: null }
+    )
+
+    expect(ctx.client.session.summarize).toHaveBeenCalledTimes(1)
+  })
+
   it("should ignore stale cached Anthropic limits for older models", async () => {
     const modelContextLimitsCache = new Map<string, number>()
     modelContextLimitsCache.set("anthropic/claude-sonnet-4-5", 500000)

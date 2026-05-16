@@ -14,6 +14,7 @@ import type {
 const PREEMPTIVE_COMPACTION_TIMEOUT_MS = 60_000
 const PREEMPTIVE_COMPACTION_THRESHOLD = 0.78
 const PREEMPTIVE_COMPACTION_COOLDOWN_MS = 60_000
+const PREEMPTIVE_COMPACTION_POST_SUCCESS_COOLDOWN_MS = 60_000
 
 declare function setTimeout(handler: () => void, timeout?: number): unknown
 declare function clearTimeout(timeoutID: unknown): void
@@ -45,6 +46,7 @@ export async function runPreemptiveCompactionIfNeeded(args: {
   compactionInProgress: Set<string>
   compactedSessions: Set<string>
   lastCompactionTime: Map<string, number>
+  postSuccessfulCompactionTime: Map<string, number>
 }): Promise<void> {
   const {
     ctx,
@@ -55,12 +57,16 @@ export async function runPreemptiveCompactionIfNeeded(args: {
     compactionInProgress,
     compactedSessions,
     lastCompactionTime,
+    postSuccessfulCompactionTime,
   } = args
 
   if (compactedSessions.has(sessionID) || compactionInProgress.has(sessionID)) return
 
   const lastTime = lastCompactionTime.get(sessionID)
   if (lastTime && Date.now() - lastTime < PREEMPTIVE_COMPACTION_COOLDOWN_MS) return
+
+  const postSuccessTime = postSuccessfulCompactionTime.get(sessionID)
+  if (postSuccessTime && Date.now() - postSuccessTime < PREEMPTIVE_COMPACTION_POST_SUCCESS_COOLDOWN_MS) return
 
   const cached = tokenCache.get(sessionID)
   if (!cached) return
@@ -70,14 +76,6 @@ export async function runPreemptiveCompactionIfNeeded(args: {
     cached.modelID,
     modelCacheState,
   )
-
-  if (actualLimit === null) {
-    log("[preemptive-compaction] Skipping preemptive compaction: unknown context limit for model", {
-      providerID: cached.providerID,
-      modelID: cached.modelID,
-    })
-    return
-  }
 
   const totalInputTokens = (cached.tokens.input ?? 0) + (cached.tokens.cache?.read ?? 0)
   const usageRatio = totalInputTokens / actualLimit
@@ -105,6 +103,7 @@ export async function runPreemptiveCompactionIfNeeded(args: {
     )
 
     compactedSessions.add(sessionID)
+    postSuccessfulCompactionTime.set(sessionID, Date.now())
   } catch (error) {
     log("[preemptive-compaction] Compaction failed", {
       sessionID,

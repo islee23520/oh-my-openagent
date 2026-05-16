@@ -29,7 +29,7 @@ function createMockCtx() {
 }
 
 describe("preemptive-compaction context-limit cache invalidation", () => {
-  it("skips compaction after provider config removes a cached model limit", async () => {
+  it("uses conservative fallback after provider config removes a cached model limit", async () => {
     // given
     const ctx = createMockCtx()
     const modelCacheState = createModelCacheState()
@@ -91,6 +91,10 @@ describe("preemptive-compaction context-limit cache invalidation", () => {
     )
 
     // then
-    expect(ctx.client.session.summarize).not.toHaveBeenCalled()
+    expect(ctx.client.session.summarize).toHaveBeenCalledTimes(1)
+    expect(logMock).toHaveBeenCalledWith(
+      expect.stringContaining("unknown provider"),
+      expect.objectContaining({ providerID: "opencode", modelID: "kimi-k2.5-free" }),
+    )
   })
 })
