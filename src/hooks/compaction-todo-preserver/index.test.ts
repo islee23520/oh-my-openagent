@@ -319,4 +319,78 @@ describe("compaction-todo-preserver", () => {
     //#then
     expect(updateMock).not.toHaveBeenCalled()
   })
+
+  it("restores small snapshot unchanged (within token budget)", async () => {
+    //#given
+    updateMock.mockClear()
+    const sessionID = "session-budget-small"
+    const smallTodos: Todo[] = [
+      { content: "Small task A", status: "pending", priority: "high" },
+      { content: "Small task B", status: "in_progress", priority: "medium" },
+    ]
+    const ctx = createMockContext([smallTodos, []])
+    const hook = createCompactionTodoPreserverHook(ctx)
+
+    //#when
+    await hook.capture(sessionID)
+    await hook.event({ event: { type: "session.compacted", properties: { sessionID } } })
+
+    //#then
+    expect(updateMock).toHaveBeenCalledTimes(1)
+    expect(updateMock).toHaveBeenCalledWith({ sessionID, todos: smallTodos })
+  })
+
+  it("truncates oversized snapshot to fit token budget, keeping high-priority active todos", async () => {
+    //#given
+    updateMock.mockClear()
+    const sessionID = "session-budget-oversized-truncate"
+    const longContent = "x".repeat(3_000)
+    const oversizedTodos: Todo[] = [
+      { content: `High priority active: ${longContent}`, status: "in_progress", priority: "high" },
+      { content: `Medium priority pending: ${longContent}`, status: "pending", priority: "medium" },
+      { content: `Low priority completed: ${longContent}`, status: "completed", priority: "low" },
+      { content: `Low priority cancelled: ${longContent}`, status: "cancelled", priority: "low" },
+      { content: `Medium priority completed: ${longContent}`, status: "completed", priority: "medium" },
+      { content: `High priority completed: ${longContent}`, status: "completed", priority: "high" },
+      { content: `Low priority pending: ${longContent}`, status: "pending", priority: "low" },
+      { content: `High priority pending: ${longContent}`, status: "pending", priority: "high" },
+      { content: `Medium priority in_progress: ${longContent}`, status: "in_progress", priority: "medium" },
+    ]
+    const ctx = createMockContext([oversizedTodos, []])
+    const hook = createCompactionTodoPreserverHook(ctx)
+
+    //#when
+    await hook.capture(sessionID)
+    await hook.event({ event: { type: "session.compacted", properties: { sessionID } } })
+
+    //#then
+    expect(updateMock).toHaveBeenCalledTimes(1)
+    const restoredTodos = updateMock.mock.calls[0][0].todos as Todo[]
+    expect(restoredTodos.length).toBeGreaterThan(0)
+    expect(restoredTodos.length).toBeLessThan(oversizedTodos.length)
+    const restoredJson = JSON.stringify(restoredTodos)
+    const estimatedTokens = Math.ceil(restoredJson.length / (4 * 0.8))
+    expect(estimatedTokens).toBeLessThanOrEqual(8_000)
+    const hasInProgress = restoredTodos.some((t) => t.status === "in_progress" && t.priority === "high")
+    expect(hasInProgress).toBe(true)
+  })
+
+  it("skips restore entirely when every individual todo exceeds the token budget", async () => {
+    //#given
+    updateMock.mockClear()
+    const sessionID = "session-budget-oversized-drop"
+    const hugeContent = "x".repeat(200_000)
+    const massiveTodos: Todo[] = [
+      { content: `Massive task: ${hugeContent}`, status: "in_progress", priority: "high" },
+    ]
+    const ctx = createMockContext([massiveTodos, []])
+    const hook = createCompactionTodoPreserverHook(ctx)
+
+    //#when
+    await hook.capture(sessionID)
+    await hook.event({ event: { type: "session.compacted", properties: { sessionID } } })
+
+    //#then
+    expect(updateMock).not.toHaveBeenCalled()
+  })
 })

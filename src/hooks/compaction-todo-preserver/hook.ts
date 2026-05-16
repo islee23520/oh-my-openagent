@@ -1,6 +1,7 @@
 import type { PluginInput } from "@opencode-ai/plugin"
 import { resolveSessionEventID } from "../../shared/event-session-id"
 import { log } from "../../shared/logger"
+import { estimateContentSize } from "../../shared/context-budget"
 
 interface TodoSnapshot {
   id?: string
@@ -14,6 +15,60 @@ type ToolExecuteBeforeInput = { tool: string; sessionID: string; callID: string 
 type ToolExecuteBeforeOutput = { args: Record<string, unknown> }
 
 const HOOK_NAME = "compaction-todo-preserver"
+
+const TODO_RESTORE_TOKEN_BUDGET = 8_000
+
+const STATUS_PRIORITY_ORDER: Record<TodoSnapshot["status"], number> = {
+  in_progress: 0,
+  pending: 1,
+  completed: 2,
+  cancelled: 3,
+}
+
+const ITEM_PRIORITY_ORDER: Record<NonNullable<TodoSnapshot["priority"]>, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+}
+
+type BoundResult =
+  | { kind: "accept"; todos: TodoSnapshot[] }
+  | { kind: "truncate"; todos: TodoSnapshot[]; originalCount: number; droppedCount: number }
+  | { kind: "drop"; estimatedTokens: number }
+
+function estimateSnapshotTokens(todos: TodoSnapshot[]): number {
+  return estimateContentSize({ content: JSON.stringify(todos), kind: "json" }).tokens
+}
+
+function boundSnapshotToBudget(snapshot: TodoSnapshot[]): BoundResult {
+  const estimatedTokens = estimateSnapshotTokens(snapshot)
+  if (estimatedTokens <= TODO_RESTORE_TOKEN_BUDGET) {
+    return { kind: "accept", todos: snapshot }
+  }
+
+  const sorted = [...snapshot].sort((a, b) => {
+    const statusDiff = STATUS_PRIORITY_ORDER[a.status] - STATUS_PRIORITY_ORDER[b.status]
+    if (statusDiff !== 0) return statusDiff
+    const aPriority = ITEM_PRIORITY_ORDER[a.priority ?? "medium"]
+    const bPriority = ITEM_PRIORITY_ORDER[b.priority ?? "medium"]
+    return aPriority - bPriority
+  })
+
+  const kept: TodoSnapshot[] = []
+  for (const todo of sorted) {
+    const candidate = [...kept, todo]
+    if (estimateSnapshotTokens(candidate) <= TODO_RESTORE_TOKEN_BUDGET) {
+      kept.push(todo)
+    }
+  }
+
+  if (kept.length === 0) {
+    return { kind: "drop", estimatedTokens }
+  }
+
+  return { kind: "truncate", todos: kept, originalCount: snapshot.length, droppedCount: snapshot.length - kept.length }
+}
+
 const ATLAS_BOOTSTRAP_TODOS = [
   {
     id: "orchestrate-plan",
@@ -161,8 +216,6 @@ export function createCompactionTodoPreserverHook(
       return
     }
 
-    protectedSnapshots.set(sessionID, snapshot)
-
     const writer = await resolveTodoWriter()
     if (!writer) {
       snapshots.delete(sessionID)
@@ -170,9 +223,35 @@ export function createCompactionTodoPreserverHook(
       return
     }
 
+    const bound = boundSnapshotToBudget(snapshot)
+
+    if (bound.kind === "drop") {
+      snapshots.delete(sessionID)
+      protectedSnapshots.delete(sessionID)
+      log(`[${HOOK_NAME}] Skipped restore (snapshot exceeds token budget)`, {
+        sessionID,
+        estimatedTokens: bound.estimatedTokens,
+        budget: TODO_RESTORE_TOKEN_BUDGET,
+      })
+      return
+    }
+
+    const todosToRestore = bound.todos
+    protectedSnapshots.set(sessionID, todosToRestore)
+
+    if (bound.kind === "truncate") {
+      log(`[${HOOK_NAME}] Truncated snapshot to fit token budget`, {
+        sessionID,
+        originalCount: bound.originalCount,
+        restoredCount: todosToRestore.length,
+        droppedCount: bound.droppedCount,
+        budget: TODO_RESTORE_TOKEN_BUDGET,
+      })
+    }
+
     try {
-      await writer({ sessionID, todos: snapshot })
-      log(`[${HOOK_NAME}] Restored todos after compaction`, { sessionID, count: snapshot.length })
+      await writer({ sessionID, todos: todosToRestore })
+      log(`[${HOOK_NAME}] Restored todos after compaction`, { sessionID, count: todosToRestore.length })
     } catch (err) {
       log(`[${HOOK_NAME}] Failed to restore todos`, { sessionID, error: String(err) })
     } finally {
