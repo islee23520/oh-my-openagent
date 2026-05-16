@@ -1,6 +1,6 @@
 {
   "name": "oh-my-opencode",
-  "version": "4.1.2",
+  "version": "4.2.0",
   "description": "The Best AI Agent Harness - Batteries-Included OpenCode Plugin with Multi-Model Orchestration, Parallel Background Agents, and Crafted LSP/AST Tools",
   "main": "./dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,7 +35,7 @@
     "test:model-capabilities": "bun test src/shared/model-capability-aliases.test.ts src/shared/model-capability-guardrails.test.ts src/shared/model-capabilities.test.ts src/cli/doctor/checks/model-resolution.test.ts --bail",
     "typecheck": "tsgo --noEmit",
     "typecheck:script": "tsgo --noEmit -p script/tsconfig.json",
-    "test": "bun run script/run-ci-tests.ts"
+    "test": "bun test"
   },
   "keywords": [
     "opencode",
