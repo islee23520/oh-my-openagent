@@ -135,7 +135,7 @@ describe("experimental.session.compacting handler", () => {
 
     const output = { context: [] as string[], prompt: undefined as string | undefined }
 
-    await expect(handler({ sessionID: "ses_test" }, output)).resolves.toBeUndefined()
+    await handler({ sessionID: "ses_test" }, output)
     expect(preCompactMock).toHaveBeenCalled()
     expect(output.context).toContain("precompact-context")
   })
@@ -186,7 +186,7 @@ describe("experimental.compaction.autocontinue handler", () => {
       callOrder.push("context")
       return true
     })
-    const restoreMock = mock(async () => {})
+    const restoreMock = mock(async (_sessionID: string) => {})
     const handler = createCompactionAutocontinueHandler({
       compactionContextInjector: { restore: restoreContextMock },
       compactionTodoPreserver: {
@@ -208,6 +208,32 @@ describe("experimental.compaction.autocontinue handler", () => {
     expect(output.enabled).toBe(true)
   })
 
+  it("keeps autocontinue enabled after checkpointed agent recovery so OpenCode continues with restored config", async () => {
+    //#given
+    const callOrder: string[] = []
+    const restoreContextMock = mock(async () => {
+      callOrder.push("context-restored")
+      return true
+    })
+    const restoreTodosMock = mock(async () => {
+      callOrder.push("todos-restored")
+    })
+    const handler = createCompactionAutocontinueHandler({
+      compactionContextInjector: { restore: restoreContextMock },
+      compactionTodoPreserver: { restore: restoreTodosMock },
+    })
+    const output = { enabled: true }
+
+    //#when
+    await handler({ sessionID: "ses_recovered_agent" }, output)
+
+    //#then
+    expect(restoreContextMock).toHaveBeenCalledWith("ses_recovered_agent")
+    expect(restoreTodosMock).toHaveBeenCalledWith("ses_recovered_agent")
+    expect(callOrder).toEqual(["context-restored", "todos-restored"])
+    expect(output.enabled).toBe(true)
+  })
+
   it("continues autocontinue restore when one restore hook throws", async () => {
     //#given
     const restoreMock = mock(async () => {})
@@ -222,7 +248,7 @@ describe("experimental.compaction.autocontinue handler", () => {
     const output = { enabled: true }
 
     //#when
-    await expect(handler({ sessionID: "ses_autocontinue" }, output)).resolves.toBeUndefined()
+    await handler({ sessionID: "ses_autocontinue" }, output)
 
     //#then
     expect(restoreMock).toHaveBeenCalledWith("ses_autocontinue")

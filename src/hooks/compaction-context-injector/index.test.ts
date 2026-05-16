@@ -160,6 +160,99 @@ describe("createCompactionContextInjector", () => {
       //#then
       expect(prompt).not.toContain("Active/Recent Delegated Sessions")
     })
+
+    it("truncates oversized delegated history and includes truncation note", async () => {
+      //#given
+      const mockManager = createMockBackgroundManager()
+      // Generate enough entries to exceed the 4000-token budget (~16000 chars)
+      for (let index = 0; index < 200; index++) {
+        mockManager.taskHistory.record("ses_big", {
+          id: `t${index}`,
+          sessionID: `ses_child_${index}`,
+          agent: "explore",
+          description: `Task ${index}: ${"x".repeat(100)}`,
+          status: "completed",
+          category: "quick",
+        })
+      }
+      const injector = createCompactionContextInjector({ backgroundManager: mockManager })
+
+      //#when
+      const prompt = injector.inject("ses_big")
+
+      //#then
+      expect(prompt).toContain("Active/Recent Delegated Sessions")
+      expect(prompt).toContain("history truncated")
+      // All 8 required section headers must still be present
+      expect(prompt).toContain("## 1. User Requests")
+      expect(prompt).toContain("## 2. Final Goal")
+      expect(prompt).toContain("## 3. Work Completed")
+      expect(prompt).toContain("## 4. Remaining Tasks")
+      expect(prompt).toContain("## 5. Active Working Context")
+      expect(prompt).toContain("## 6. Explicit Constraints")
+      expect(prompt).toContain("## 7. Agent Verification State")
+      expect(prompt).toContain("## 8. Delegated Agent Sessions")
+    })
+
+    it("uses checkpointed provider identity when budgeting delegated history", async () => {
+      //#given
+      const mockManager = createMockBackgroundManager()
+      for (let index = 0; index < 200; index++) {
+        mockManager.taskHistory.record("ses_copilot_history", {
+          id: `t${index}`,
+          sessionID: `ses_child_${index}`,
+          agent: "explore",
+          description: `Task ${index}: ${"x".repeat(100)}`,
+          status: "completed",
+          category: "quick",
+        })
+      }
+      const ctx = createMockContext([
+        [
+          {
+            info: {
+              role: "user",
+              agent: "sisyphus",
+              model: { providerID: "github-copilot", modelID: "gpt-5" },
+            },
+          },
+        ],
+      ])
+      const injector = createCompactionContextInjector({ ctx, backgroundManager: mockManager })
+
+      //#when
+      await injector.capture("ses_copilot_history")
+      const prompt = injector.inject("ses_copilot_history")
+
+      //#then
+      expect(prompt).toContain("Active/Recent Delegated Sessions")
+      expect(prompt).toContain("history truncated")
+      expect(prompt).toContain("4000-token delegated-history budget")
+      expect(prompt).toContain("github-copilot/gpt-5")
+      expect(prompt).toContain("context limit 64000")
+    })
+
+    it("does not truncate delegated history that fits within budget", async () => {
+      //#given
+      const mockManager = createMockBackgroundManager()
+      mockManager.taskHistory.record("ses_small", {
+        id: "t1",
+        sessionID: "ses_child_1",
+        agent: "explore",
+        description: "Short task",
+        status: "completed",
+        category: "quick",
+      })
+      const injector = createCompactionContextInjector({ backgroundManager: mockManager })
+
+      //#when
+      const prompt = injector.inject("ses_small")
+
+      //#then
+      expect(prompt).toContain("Active/Recent Delegated Sessions")
+      expect(prompt).not.toContain("history truncated")
+      expect(prompt).toContain("ses_child_1")
+    })
   })
 
   describe("agent checkpoint recovery", () => {

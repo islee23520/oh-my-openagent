@@ -1,8 +1,11 @@
 import type { BackgroundManager } from "../../features/background-agent"
 import {
   clearCompactionAgentConfigCheckpoint,
+  type CompactionAgentConfigCheckpoint,
   setCompactionAgentConfigCheckpoint,
 } from "../../shared/compaction-agent-config-checkpoint"
+import { createContextBudget, processIngress } from "../../shared/context-budget"
+import { resolveActualContextLimit } from "../../shared/context-limit-resolver"
 import { resolveMessageEventSessionID } from "../../shared/event-session-id"
 import { log } from "../../shared/logger"
 import { COMPACTION_CONTEXT_PROMPT } from "./compaction-context-prompt"
@@ -12,6 +15,26 @@ import { resolveSessionID } from "./session-id"
 import type { CompactionContextClient, CompactionContextInjector } from "./types"
 import { createRecoveryLogic } from "./recovery"
 
+const DELEGATED_HISTORY_MAX_TOKENS = 4_000
+
+function createDelegatedHistoryBudget(model: CompactionAgentConfigCheckpoint["model"]) {
+  const providerID = model?.providerID ?? "unknown"
+  const modelID = model?.modelID ?? "unknown"
+  const contextLimit = resolveActualContextLimit(providerID, modelID)
+  const availableTokens = Math.min(contextLimit, DELEGATED_HISTORY_MAX_TOKENS)
+
+  return {
+    budget: createContextBudget({
+      limits: { providerID, modelID, contextLimit },
+      safetyMarginTokens: Math.max(0, contextLimit - availableTokens),
+    }),
+    providerID,
+    modelID,
+    contextLimit,
+    availableTokens,
+  }
+}
+
 export function createCompactionContextInjector(options?: {
   ctx?: CompactionContextClient
   backgroundManager?: BackgroundManager
@@ -19,6 +42,7 @@ export function createCompactionContextInjector(options?: {
   const ctx = options?.ctx
   const backgroundManager = options?.backgroundManager
   const tailStates = new Map<string, TailMonitorState>()
+  const promptConfigCheckpoints = new Map<string, CompactionAgentConfigCheckpoint>()
 
   const getTailState = (sessionID: string): TailMonitorState => {
     const existing = tailStates.get(sessionID)
@@ -43,6 +67,7 @@ export function createCompactionContextInjector(options?: {
   const capture = async (sessionID: string): Promise<void> => {
     if (sessionID) {
       clearCompactionAgentConfigCheckpoint(sessionID)
+      promptConfigCheckpoints.delete(sessionID)
     }
 
     if (!ctx || !sessionID) {
@@ -54,6 +79,7 @@ export function createCompactionContextInjector(options?: {
       return
     }
 
+    promptConfigCheckpoints.set(sessionID, promptConfig)
     setCompactionAgentConfigCheckpoint(sessionID, promptConfig)
     log(`[compaction-context-injector] Captured agent checkpoint before compaction`, {
       sessionID,
@@ -69,7 +95,19 @@ export function createCompactionContextInjector(options?: {
     if (backgroundManager && sessionID) {
       const history = backgroundManager.taskHistory.formatForCompaction(sessionID)
       if (history) {
-        prompt += `\n### Active/Recent Delegated Sessions\n${history}\n`
+        const budgetContext = createDelegatedHistoryBudget(promptConfigCheckpoints.get(sessionID)?.model)
+        const summary = processIngress(
+          [{ id: "delegated-history", content: history, kind: "text", priority: 1 }],
+          budgetContext.budget,
+        )
+        const result = summary.results[0]
+        if (result && result.decision !== "drop") {
+          const truncationNote =
+            result.decision === "truncate"
+              ? `\n> [history truncated: ${result.originalTokens} tokens → ${result.acceptedTokens} tokens to fit ${budgetContext.availableTokens}-token delegated-history budget (${budgetContext.providerID}/${budgetContext.modelID}, context limit ${budgetContext.contextLimit})]\n`
+              : ""
+          prompt += `\n### Active/Recent Delegated Sessions\n${result.acceptedContent}${truncationNote}\n`
+        }
       }
     }
 
@@ -83,6 +121,7 @@ export function createCompactionContextInjector(options?: {
       const sessionID = resolveSessionID(props)
       if (sessionID) {
         clearCompactionAgentConfigCheckpoint(sessionID)
+        promptConfigCheckpoints.delete(sessionID)
         tailStates.delete(sessionID)
       }
       return
