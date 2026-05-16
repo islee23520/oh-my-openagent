@@ -1,6 +1,8 @@
 import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { relative, resolve } from "node:path";
+import { createContextBudget, processIngress } from "../../shared/context-budget";
+import { resolveActualContextLimit } from "../../shared/context-limit-resolver";
 import { findProjectRoot, findRuleFiles } from "./finder";
 import type { FindRuleFilesOptions } from "./rule-file-finder";
 import {
@@ -26,6 +28,11 @@ type RuleToInject = {
   matchReason: string;
   content: string;
   distance: number;
+};
+
+type PreparedRuleToInject = RuleToInject & {
+  content: string;
+  truncationNotice: string;
 };
 
 type DynamicTruncator = {
@@ -179,6 +186,8 @@ export function createRuleInjectionProcessor(deps: {
 
     toInject.sort((a, b) => a.distance - b.distance);
 
+    const preparedRules: PreparedRuleToInject[] = [];
+
     for (const rule of toInject) {
       const { result, truncated } = await truncator.truncate(
         sessionID,
@@ -187,7 +196,41 @@ export function createRuleInjectionProcessor(deps: {
       const truncationNotice = truncated
         ? `\n\n[Note: Content was truncated to save context window space. For full context, please read the file directly: ${rule.relativePath}]`
         : "";
-      output.output += `\n\n[Rule: ${rule.relativePath}]\n[Match: ${rule.matchReason}]\n${result}${truncationNotice}`;
+
+      preparedRules.push({
+        ...rule,
+        content: result,
+        truncationNotice,
+      });
+    }
+
+    const contextLimit = resolveActualContextLimit("unknown", "unknown");
+    const budget = createContextBudget({
+      limits: { providerID: "unknown", modelID: "unknown", contextLimit },
+      safetyMarginTokens: 0,
+    });
+    const ingress = processIngress(
+      preparedRules.map((rule) => ({
+        id: rule.relativePath,
+        content: rule.content,
+        kind: "text" as const,
+        priority: 1,
+      })),
+      budget,
+    );
+    const ruleByPath = new Map(preparedRules.map((rule) => [rule.relativePath, rule]));
+
+    for (const ingressResult of ingress.results) {
+      const rule = ruleByPath.get(ingressResult.id);
+      if (!rule) continue;
+      if (ingressResult.decision === "drop") {
+        output.output += `\n\n[Rule: ${rule.relativePath}]\n[Match: ${rule.matchReason}]\n[Budget gate: content skipped — ${ingressResult.reason}]`;
+        continue;
+      }
+      const budgetNotice = ingressResult.decision === "truncate"
+        ? `\n\n[Budget gate: content truncated — ${ingressResult.reason}]`
+        : "";
+      output.output += `\n\n[Rule: ${rule.relativePath}]\n[Match: ${rule.matchReason}]\n${ingressResult.acceptedContent}${rule.truncationNotice}${budgetNotice}`;
     }
 
     if (dirty) {

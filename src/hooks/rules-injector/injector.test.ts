@@ -240,4 +240,100 @@ describe("createRuleInjectionProcessor", () => {
     // then
     expect(trackedReadFileCount).toBe(2);
   });
+
+  it("passes through rule content unchanged when under budget", async () => {
+    // given
+    const processor = await createProcessor(projectRoot);
+    const output = createOutput();
+
+    // when
+    await processor.processFilePathForInjection(targetFile, "session-budget-under", output);
+
+    // then
+    expect(output.output).toContain("[Rule:")
+    expect(output.output).not.toContain("[Budget gate:")
+  });
+
+  it("truncates and appends budget notice when rule content exceeds budget", async () => {
+    // given
+    const largeContent = "x".repeat(201_000);
+    writeFileSync(ruleFile, largeContent);
+
+    const sessionCaches = new Map<string, { contentHashes: Set<string>; realPaths: Set<string> }>();
+    const processor = createRuleInjectionProcessor({
+      workspaceDirectory: projectRoot,
+      truncator: {
+        truncate: async (_sessionID: string, content: string) => ({
+          result: content,
+          truncated: false,
+        }),
+      },
+      getSessionCache: (sessionID: string) => {
+        if (!sessionCaches.has(sessionID)) {
+          sessionCaches.set(sessionID, { contentHashes: new Set(), realPaths: new Set() });
+        }
+        return sessionCaches.get(sessionID)!;
+      },
+      readFileSync: originalReadFileSync,
+      statSync: originalStatSync,
+      homedir: () => mockedHomeDir || originalHomedir(),
+      shouldApplyRule: () => ({ applies: true, reason: "matched" }),
+      isDuplicateByRealPath: (realPath: string, cache: Set<string>) => cache.has(realPath),
+      createContentHash: (content: string) => `hash:${content.slice(0, 20)}`,
+      isDuplicateByContentHash: (hash: string, cache: Set<string>) => cache.has(hash),
+    });
+    const output = createOutput();
+
+    // when
+    await processor.processFilePathForInjection(targetFile, "session-budget-over", output);
+
+    // then
+    expect(output.output).toContain("[Rule:")
+    expect(output.output).toContain("[Budget gate: content truncated")
+  });
+
+  it("applies one aggregate budget across multiple matching rules", async () => {
+    // given
+    const secondRule = join(
+      projectRoot,
+      ".github",
+      "instructions",
+      "second.instructions.md"
+    );
+    writeFileSync(ruleFile, "a".repeat(140_000));
+    writeFileSync(secondRule, "b".repeat(140_000));
+
+    const sessionCaches = new Map<string, { contentHashes: Set<string>; realPaths: Set<string> }>();
+    const processor = createRuleInjectionProcessor({
+      workspaceDirectory: projectRoot,
+      truncator: {
+        truncate: async (_sessionID: string, content: string) => ({
+          result: content,
+          truncated: false,
+        }),
+      },
+      getSessionCache: (sessionID: string) => {
+        if (!sessionCaches.has(sessionID)) {
+          sessionCaches.set(sessionID, { contentHashes: new Set(), realPaths: new Set() });
+        }
+        return sessionCaches.get(sessionID)!;
+      },
+      readFileSync: originalReadFileSync,
+      statSync: originalStatSync,
+      homedir: () => mockedHomeDir || originalHomedir(),
+      shouldApplyRule: () => ({ applies: true, reason: "matched" }),
+      isDuplicateByRealPath: (realPath: string, cache: Set<string>) => cache.has(realPath),
+      createContentHash: (content: string) => `hash:${content.slice(0, 20)}`,
+      isDuplicateByContentHash: (hash: string, cache: Set<string>) => cache.has(hash),
+    });
+    const output = createOutput();
+
+    // when
+    await processor.processFilePathForInjection(targetFile, "session-aggregate-rules-budget", output);
+
+    // then
+    expect(output.output).toContain("[Rule:")
+    expect(output.output).toContain("[Budget gate: content truncated")
+    expect(output.output).toContain("[Budget gate: content skipped")
+  });
 });
