@@ -1,7 +1,7 @@
 import process from "node:process"
 import { afterEach, describe, expect, it } from "bun:test"
 
-import { resolveActualContextLimit } from "./context-limit-resolver"
+import { resolveActualContextLimit, UNKNOWN_PROVIDER_CONTEXT_LIMIT_FALLBACK } from "./context-limit-resolver"
 
 const ANTHROPIC_CONTEXT_ENV_KEY = "ANTHROPIC_1M_CONTEXT"
 const VERTEX_CONTEXT_ENV_KEY = "VERTEX_ANTHROPIC_1M_CONTEXT"
@@ -158,7 +158,7 @@ describe("resolveActualContextLimit", () => {
     expect(actualLimit).toBe(200_000)
   })
 
-  it("returns null for non-Anthropic providers without a cached limit", () => {
+  it("returns conservative fallback for non-Anthropic providers without a cached limit", () => {
     // given
     delete process.env[ANTHROPIC_CONTEXT_ENV_KEY]
     delete process.env[VERTEX_CONTEXT_ENV_KEY]
@@ -169,6 +169,6 @@ describe("resolveActualContextLimit", () => {
     })
 
     // then
-    expect(actualLimit).toBeNull()
+    expect(actualLimit).toBe(UNKNOWN_PROVIDER_CONTEXT_LIMIT_FALLBACK)
   })
 })
