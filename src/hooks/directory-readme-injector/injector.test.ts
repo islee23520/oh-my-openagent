@@ -220,6 +220,86 @@ describe("processFilePathForReadmeInjection", () => {
     expect(output.output).toContain("[Note: Content was truncated")
   })
 
+  it("passes through content unchanged when under budget", async () => {
+    // given
+    const sourceDirectory = join(testRoot, "src")
+    mkdirSync(sourceDirectory, { recursive: true })
+    writeFileSync(join(sourceDirectory, "README.md"), "# Small README\nshort content")
+
+    const { processFilePathForReadmeInjection } = await import("./injector")
+    const output = { title: "Result", output: "base", metadata: {} }
+    const truncator = createTruncator()
+
+    // when
+    await processFilePathForReadmeInjection({
+      ctx: createPluginContext(testRoot),
+      truncator,
+      sessionCaches: new Map<string, Set<string>>(),
+      filePath: join(sourceDirectory, "file.ts"),
+      sessionID: "session-budget-under",
+      output,
+    })
+
+    // then
+    expect(output.output).toContain("# Small README")
+    expect(output.output).not.toContain("[Budget gate:")
+  })
+
+  it("truncates and appends budget notice when content exceeds budget", async () => {
+    // given
+    const sourceDirectory = join(testRoot, "src")
+    mkdirSync(sourceDirectory, { recursive: true })
+    const largeContent = "x".repeat(201_000)
+    writeFileSync(join(sourceDirectory, "README.md"), largeContent)
+
+    const { processFilePathForReadmeInjection } = await import("./injector")
+    const output = { title: "Result", output: "base", metadata: {} }
+    const passThroughTruncator = createTruncator()
+
+    // when
+    await processFilePathForReadmeInjection({
+      ctx: createPluginContext(testRoot),
+      truncator: passThroughTruncator,
+      sessionCaches: new Map<string, Set<string>>(),
+      filePath: join(sourceDirectory, "file.ts"),
+      sessionID: "session-budget-over",
+      output,
+    })
+
+    // then
+    expect(output.output).toContain("[Project README:")
+    expect(output.output).toContain("[Budget gate: content truncated")
+  })
+
+  it("applies one aggregate budget across multiple README injections", async () => {
+    // given
+    const sourceDirectory = join(testRoot, "src")
+    const componentsDirectory = join(sourceDirectory, "components")
+    mkdirSync(componentsDirectory, { recursive: true })
+    writeFileSync(join(testRoot, "README.md"), "a".repeat(80_000))
+    writeFileSync(join(sourceDirectory, "README.md"), "b".repeat(80_000))
+    writeFileSync(join(componentsDirectory, "README.md"), "c".repeat(80_000))
+
+    const { processFilePathForReadmeInjection } = await import("./injector")
+    const output = { title: "Result", output: "base", metadata: {} }
+    const truncator = createTruncator()
+
+    // when
+    await processFilePathForReadmeInjection({
+      ctx: createPluginContext(testRoot),
+      truncator,
+      sessionCaches: new Map<string, Set<string>>(),
+      filePath: join(componentsDirectory, "button.ts"),
+      sessionID: "session-aggregate-readme-budget",
+      output,
+    })
+
+    // then
+    expect(output.output).toContain("[Project README:")
+    expect(output.output).toContain("[Budget gate: content truncated")
+    expect(output.output).toContain("[Budget gate: content skipped")
+  })
+
   it("does nothing when filePath cannot be resolved", async () => {
     // given
     const { processFilePathForReadmeInjection } = await import("./injector")
