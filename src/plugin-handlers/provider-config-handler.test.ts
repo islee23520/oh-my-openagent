@@ -122,3 +122,64 @@ describe("applyProviderConfig", () => {
 })
 
 clearVisionCapableModelsCache()
+
+describe("applyProviderConfig - Copilot explicit limit override", () => {
+  test("explicit provider config limit overrides registry fallback for a Copilot model", () => {
+    // given
+    const modelCacheState = createModelCacheState()
+
+    // when
+    applyProviderConfig({
+      config: {
+        provider: {
+          "github-copilot": {
+            models: {
+              "gpt-4o": {
+                limit: { context: 128_000 },
+              },
+            },
+          },
+        },
+      },
+      modelCacheState,
+    })
+
+    // then
+    expect(modelCacheState.modelContextLimitsCache.get("github-copilot/gpt-4o")).toBe(128_000)
+  })
+
+  test("clears stale Copilot model limits when provider config changes", () => {
+    // given
+    const modelCacheState = createModelCacheState()
+    applyProviderConfig({
+      config: {
+        provider: {
+          "github-copilot": {
+            models: {
+              "gpt-4o": { limit: { context: 128_000 } },
+            },
+          },
+        },
+      },
+      modelCacheState,
+    })
+
+    // when
+    applyProviderConfig({
+      config: {
+        provider: {
+          "github-copilot": {
+            models: {
+              "claude-sonnet-4-5": { limit: { context: 200_000 } },
+            },
+          },
+        },
+      },
+      modelCacheState,
+    })
+
+    // then
+    expect(modelCacheState.modelContextLimitsCache.has("github-copilot/gpt-4o")).toBe(false)
+    expect(modelCacheState.modelContextLimitsCache.get("github-copilot/claude-sonnet-4-5")).toBe(200_000)
+  })
+})
