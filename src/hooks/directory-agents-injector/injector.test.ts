@@ -222,4 +222,85 @@ describe("processFilePathForAgentsInjection", () => {
     // then
     expect(output.output).toBe("base output")
   })
+
+  it("passes through content unchanged when under budget", async () => {
+    // given
+    const { processFilePathForAgentsInjection } = await import("./injector")
+    const output = { title: "Read result", output: "base output", metadata: {} }
+
+    // when
+    await processFilePathForAgentsInjection({
+      ctx: { directory: testRoot } as PluginInput,
+      truncator,
+      sessionCaches: new Map(),
+      filePath: join(srcDirectory, "file.ts"),
+      sessionID: "session-budget-under",
+      output,
+    })
+
+    // then
+    expect(output.output).toContain(srcAgentsContent)
+    expect(output.output).not.toContain("[Budget gate:")
+  })
+
+  it("truncates and appends budget notice when content exceeds budget", async () => {
+    // given
+    const largeContent = "x".repeat(201_000)
+    writeFileSync(join(srcDirectory, "AGENTS.md"), largeContent)
+    const { processFilePathForAgentsInjection } = await import("./injector")
+    const output = { title: "Read result", output: "base output", metadata: {} }
+    const passThroughTruncator = {
+      truncate: async (_sessionID: string, content: string) => ({ result: content, truncated: false }),
+      getUsage: async (_sessionID: string) => null,
+      truncateSync: (out: string, _maxTokens: number, _preserveHeaderLines?: number) => ({
+        result: out,
+        truncated: false,
+      }),
+    }
+
+    // when
+    await processFilePathForAgentsInjection({
+      ctx: { directory: testRoot } as PluginInput,
+      truncator: passThroughTruncator,
+      sessionCaches: new Map(),
+      filePath: join(srcDirectory, "file.ts"),
+      sessionID: "session-budget-over",
+      output,
+    })
+
+    // then
+    expect(output.output).toContain("[Directory Context:")
+    expect(output.output).toContain("[Budget gate: content truncated")
+  })
+
+  it("applies one aggregate budget across multiple AGENTS.md injections", async () => {
+    // given
+    writeFileSync(join(srcDirectory, "AGENTS.md"), "a".repeat(140_000))
+    writeFileSync(join(componentsDirectory, "AGENTS.md"), "b".repeat(140_000))
+    const { processFilePathForAgentsInjection } = await import("./injector")
+    const output = { title: "Read result", output: "base output", metadata: {} }
+    const passThroughTruncator = {
+      truncate: async (_sessionID: string, content: string) => ({ result: content, truncated: false }),
+      getUsage: async (_sessionID: string) => null,
+      truncateSync: (out: string, _maxTokens: number, _preserveHeaderLines?: number) => ({
+        result: out,
+        truncated: false,
+      }),
+    }
+
+    // when
+    await processFilePathForAgentsInjection({
+      ctx: { directory: testRoot } as PluginInput,
+      truncator: passThroughTruncator,
+      sessionCaches: new Map(),
+      filePath: join(componentsDirectory, "button.ts"),
+      sessionID: "session-aggregate-budget",
+      output,
+    })
+
+    // then
+    expect(output.output).toContain("[Directory Context:")
+    expect(output.output).toContain("[Budget gate: content truncated")
+    expect(output.output).toContain("[Budget gate: content skipped")
+  })
 })
