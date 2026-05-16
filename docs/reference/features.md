@@ -757,7 +757,7 @@ Current composition counts:
 - Continuation: 7
 - Skill: 2
 - Total base: 52
-- With `team_mode.enabled`: +1 Tool Guard, +2 Transform, +4 direct team session event handlers in `src/plugin/event.ts` = 59
+- With `team_mode.enabled`: +1 Tool Guard, +2 Transform, +4 direct team session event handlers in `src/plugin/event.ts` = 61
 
 ### Hook Events
 
@@ -776,10 +776,10 @@ Current composition counts:
 
 | Hook                            | Event                    | Description                                                                                                                                                                                               |
 | ------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **directory-agents-injector**   | PreToolUse + PostToolUse | Auto-injects AGENTS.md when reading files. Walks from file to project root, collecting all AGENTS.md files. Deprecated for OpenCode 1.1.37+ — Auto-disabled when native AGENTS.md injection is available. |
-| **directory-readme-injector**   | PreToolUse + PostToolUse | Auto-injects README.md for directory context.                                                                                                                                                             |
-| **rules-injector**              | PreToolUse + PostToolUse | Injects rules from `.claude/rules/` when conditions match. Supports globs and alwaysApply.                                                                                                                |
-| **compaction-context-injector** | Event                    | Preserves critical context during session compaction.                                                                                                                                                     |
+| **directory-agents-injector**   | PreToolUse + PostToolUse | Auto-injects AGENTS.md when reading files. Walks from file to project root, collecting all AGENTS.md files. Deprecated for OpenCode 1.1.37+ - auto-disabled when native AGENTS.md injection is available. Budget-gated before injection. |
+| **directory-readme-injector**   | PreToolUse + PostToolUse | Auto-injects README.md for directory context. Budget-gated before injection.                                                                                                                              |
+| **rules-injector**              | PreToolUse + PostToolUse | Injects rules from `.claude/rules/` when conditions match. Supports globs and alwaysApply. Budget-gated before injection.                                                                                 |
+| **compaction-context-injector** | Event                    | Preserves critical context during session compaction, bounds delegated history, and restores checkpointed agent/model/tool configuration after compaction.                                                  |
 | **context-window-monitor**      | Event                    | Monitors context window usage and tracks token consumption.                                                                                                                                               |
 | **preemptive-compaction**       | Event                    | Proactively compacts sessions before hitting token limits.                                                                                                                                                |
 
@@ -812,7 +812,7 @@ Current composition counts:
 | Hook                                        | Event           | Description                                                                                                                                                                                                                                                 |
 | ------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **session-recovery**                        | Event           | Recovers from session errors — missing tool results, thinking block issues, empty messages.                                                                                                                                                                 |
-| **anthropic-context-window-limit-recovery** | Event           | Handles Claude context window limits gracefully.                                                                                                                                                                                                            |
+| **anthropic-context-window-limit-recovery** | Event           | Handles Anthropic context window limits gracefully. Skips GitHub Copilot provider-family sessions so Copilot does not enter Anthropic-specific recovery paths.                                                                                               |
 | **runtime-fallback**                        | Event + Message | Automatically switches to backup models on retryable API errors (e.g., 429, 503, 529), provider key misconfiguration errors (e.g., missing API key), and auto-retry signals (when `timeout_seconds > 0`). Configurable retry logic with per-model cooldown. |
 | **model-fallback**                          | Event + Message | Manages model fallback chain when primary model is unavailable.                                                                                                                                                                                             |
 | **json-error-recovery**                     | PostToolUse     | Recovers from JSON parse errors in tool outputs.                                                                                                                                                                                                            |
@@ -821,7 +821,7 @@ Current composition counts:
 
 | Hook                      | Event       | Description                                                                                         |
 | ------------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
-| **tool-output-truncator** | PostToolUse | Truncates output from Grep, Glob, LSP, AST-grep tools. Dynamically adjusts based on context window. |
+| **tool-output-truncator** | PostToolUse | Truncates output from Grep, Glob, LSP, AST-grep tools. Dynamically adjusts based on provider context window metadata. |
 
 #### Notifications & UX
 
@@ -1000,6 +1000,18 @@ Run `bunx oh-my-opencode doctor` to see capability diagnostics including:
 - override compatibility details alongside model resolution output
 
 ## Context Injection
+
+Context injection is provider-budget aware. The budget phase runs before content is appended to the prompt, using OpenCode provider context metadata when available and conservative provider-family fallbacks when it is not. This applies to direct Tool Guard injectors, transform-time context collection, compaction delegated-history injection, and todo restoration after compaction.
+
+Compaction follows this order:
+
+1. Capture current session agent, model, tools, and todo state before compaction.
+2. Run compatible PreCompact hooks.
+3. Inject the bounded compaction prompt and delegated session history.
+4. After compaction, restore checkpointed agent configuration before OpenCode autocontinue adds the synthetic continue turn.
+5. Restore todos only within the todo restore budget, truncating or skipping oversized snapshots.
+
+Anthropic-specific context-window recovery is scoped to Anthropic provider-family sessions. GitHub Copilot uses provider metadata or Copilot-family budget fallbacks and does not silently fall into Anthropic recovery behavior.
 
 ### Directory AGENTS.md
 

@@ -358,6 +358,18 @@ Examples:
 
 Capability data comes from provider runtime metadata first. OmO also ships bundled models.dev-backed capability data, supports a refreshable local models.dev cache, and falls back to heuristic family detection plus alias rules when exact metadata is unavailable. `bunx oh-my-opencode doctor` surfaces capability diagnostics and warns when a configured model relies on compatibility fallback.
 
+#### Context Limits and Provider Budgets
+
+OpenCode provider metadata is the first source of truth for context limits. If a provider exposes `limit.context`, OmO uses that value for context budgeting and preemptive compaction decisions. Explicit provider config still wins over family defaults.
+
+When exact metadata is unavailable, OmO falls back by provider family instead of assuming Anthropic behavior:
+
+- GitHub Copilot uses a conservative Copilot-family budget unless provider metadata gives a more exact model limit.
+- Anthropic keeps Anthropic-specific context recovery behavior.
+- Unknown custom providers use a small conservative fallback so context injection is bounded instead of unbounded.
+
+Budgeting is applied before context enters the prompt. Direct Tool Guard injectors, transform-time context collection, compaction prompt history, and todo restoration all share the same accept, truncate, or drop semantics. This keeps provider identity and budget decisions ahead of compaction and recovery, preventing large restored context from immediately re-triggering compaction loops.
+
 
 #### Agent Provider Chains
 
@@ -526,7 +538,7 @@ Disable built-in hooks via `disabled_hooks`:
 { "disabled_hooks": ["comment-checker"] }
 ```
 
-Available hooks: `todo-continuation-enforcer`, `context-window-monitor`, `session-recovery`, `session-notification`, `comment-checker`, `grep-output-truncator`, `tool-output-truncator`, `directory-agents-injector`, `directory-readme-injector`, `empty-task-response-detector`, `think-mode`, `anthropic-context-window-limit-recovery`, `rules-injector`, `background-notification`, `auto-update-checker`, `startup-toast`, `keyword-detector`, `agent-usage-reminder`, `non-interactive-env`, `interactive-bash-session`, `compaction-context-injector`, `thinking-block-validator`, `claude-code-hooks`, `ralph-loop`, `preemptive-compaction`, `auto-slash-command`, `sisyphus-junior-notepad`, `no-sisyphus-gpt`, `start-work`, `runtime-fallback`
+Available hooks: `todo-continuation-enforcer`, `context-window-monitor`, `session-recovery`, `session-notification`, `comment-checker`, `grep-output-truncator`, `tool-output-truncator`, `directory-agents-injector`, `directory-readme-injector`, `empty-task-response-detector`, `think-mode`, `anthropic-context-window-limit-recovery`, `rules-injector`, `background-notification`, `auto-update-checker`, `startup-toast`, `keyword-detector`, `agent-usage-reminder`, `non-interactive-env`, `interactive-bash-session`, `compaction-context-injector`, `compaction-todo-preserver`, `thinking-block-validator`, `claude-code-hooks`, `ralph-loop`, `preemptive-compaction`, `auto-slash-command`, `sisyphus-junior-notepad`, `no-sisyphus-gpt`, `start-work`, `runtime-fallback`
 
 **Notes:**
 
@@ -1016,6 +1028,12 @@ When enabled, two companion hooks are active: `hashline-read-enhancer` (annotate
 | `POSTHOG_HOST` | Override the PostHog ingestion host. Defaults to `https://us.i.posthog.com` |
 
 ### Provider-Specific
+
+#### Context Limit Metadata
+
+Set model context limits in provider configuration when your provider supports larger or smaller windows than OmO can infer. The plugin reads OpenCode provider `limit.context` metadata and uses it before family-level fallbacks. This is especially useful for GitHub Copilot or custom proxy providers where model limits can vary by deployment.
+
+Provider-aware budgets affect context injection, tool-output truncation, preemptive compaction, and compaction restore. Anthropic context-window recovery remains Anthropic-scoped; Copilot sessions do not enter Anthropic-specific recovery paths unless you explicitly route them through an Anthropic provider.
 
 #### Google Auth
 
