@@ -1,17 +1,24 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join, resolve } from "node:path"
-import { fileURLToPath } from "node:url"
 import { dispatchOpenClawEvent } from "./runtime-dispatch"
 import { getRuntimeEventStorePath } from "./event-store-paths"
 import { loadRuntimeEventStoreRecords, type RuntimeEventStoreRecord } from "./event-store"
+import {
+  countByKind,
+  duplicateCorrelationIds,
+  isolatedContextFailures,
+  ledgerFailures,
+  readerRecordsFromProof,
+  readStoreFromRestartedProcess,
+  runSequenceFailures,
+  writeReaderOutput,
+  type RestartProof,
+} from "./runtime-store-probe-analysis"
 import type { OpenClawConfig } from "./types"
 
 interface ProbeOptions { readonly session: string; readonly events: number; readonly parallel: number; readonly expectNoDuplicates: boolean; readonly expectIsolatedContext: boolean; readonly out: string }
 interface ProbeSummary { readonly ok: boolean; readonly session: string; readonly eventsRequested: number; readonly parallel: number; readonly stateDir: string; readonly storePath: string; readonly counts: Record<string, number>; readonly uniqueCorrelationIds: number; readonly duplicateCorrelationIds: readonly string[]; readonly runSequenceFailures: readonly string[]; readonly isolatedContextFailures: readonly string[]; readonly ledgerFailures: readonly string[]; readonly restartProof: RestartProof; readonly records: readonly RuntimeEventStoreRecord[] }
-interface StoreIdentity { readonly sessionIds: readonly string[]; readonly runIds: readonly string[]; readonly eventCorrelationIds: readonly string[]; readonly ledgerIds: readonly string[]; readonly eventSequences: readonly string[] }
-interface ReaderOutput { readonly stateDir: string; readonly storePath: string; readonly counts: Record<string, number>; readonly identity: StoreIdentity; readonly records: readonly RuntimeEventStoreRecord[] }
-interface RestartProof { readonly childCommand: string; readonly childExitCode: number | null; readonly childOutput: string; readonly childErrorOutput: string; readonly childStorePath: string | null; readonly writerIdentity: StoreIdentity; readonly readerIdentity: StoreIdentity | null; readonly sameIds: boolean; readonly sameSequences: boolean }
 
 function readFlag(args: readonly string[], flag: string): string | null {
   const index = args.indexOf(flag)
@@ -49,134 +56,12 @@ function createConfig(index: number): OpenClawConfig {
   }
 }
 
-function countByKind(records: readonly RuntimeEventStoreRecord[]): Record<string, number> {
-  return records.reduce<Record<string, number>>((counts, record) => {
-    counts[record.kind] = (counts[record.kind] ?? 0) + 1
-    return counts
-  }, {})
-}
-
-function sorted(values: readonly string[]): readonly string[] {
-  return [...values].sort((left, right) => left.localeCompare(right))
-}
-
-function storeIdentity(records: readonly RuntimeEventStoreRecord[]): StoreIdentity {
-  return {
-    sessionIds: sorted(records.filter((record) => record.kind === "session").map((record) => record.sessionId)),
-    runIds: sorted(records.filter((record) => record.kind === "run").map((record) => record.runId)),
-    eventCorrelationIds: sorted(eventRecords(records).map((record) => record.correlationId)),
-    ledgerIds: sorted(ledgerRecords(records).map((record) => record.ledgerId)),
-    eventSequences: sorted(eventRecords(records).map((record) => `${record.runId}:${record.openclawEvent}:${record.sequence}`)),
-  }
-}
-
-function sameStringList(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index])
-}
-
-function sameStoreIds(left: StoreIdentity, right: StoreIdentity): boolean {
-  return sameStringList(left.sessionIds, right.sessionIds)
-    && sameStringList(left.runIds, right.runIds)
-    && sameStringList(left.eventCorrelationIds, right.eventCorrelationIds)
-    && sameStringList(left.ledgerIds, right.ledgerIds)
-}
-
 function eventRecords(records: readonly RuntimeEventStoreRecord[]) {
   return records.filter((record) => record.kind === "event")
 }
 
-function ledgerRecords(records: readonly RuntimeEventStoreRecord[]) {
-  return records.filter((record) => record.kind === "ledger")
-}
-
-function duplicateCorrelationIds(records: readonly RuntimeEventStoreRecord[]): string[] {
-  const seen = new Set<string>()
-  const duplicates = new Set<string>()
-  for (const record of eventRecords(records)) {
-    if (seen.has(record.correlationId)) duplicates.add(record.correlationId)
-    seen.add(record.correlationId)
-  }
-  return Array.from(duplicates)
-}
-
-function runSequenceFailures(records: readonly RuntimeEventStoreRecord[]): string[] {
-  const byRun = new Map<string, number[]>()
-  for (const record of eventRecords(records)) {
-    byRun.set(record.runId, [...(byRun.get(record.runId) ?? []), record.sequence])
-  }
-  return Array.from(byRun.entries())
-    .filter(([, sequences]) => sequences.some((sequence, index) => sequence !== index + 1))
-    .map(([runId, sequences]) => `${runId}:${sequences.join(",")}`)
-}
-
-function isolatedContextFailures(records: readonly RuntimeEventStoreRecord[]): string[] {
-  return eventRecords(records)
-    .filter((record) => {
-      const suffix = record.projectPath?.match(/project-(\d+)$/)?.[1]
-      return suffix === undefined || record.tmuxPaneId !== `%${suffix}` || record.tmuxSession !== `tmux-${suffix}`
-    })
-    .map((record) => `${record.runId}:${record.projectPath}:${record.tmuxPaneId}:${record.tmuxSession}`)
-}
-
-function ledgerFailures(records: readonly RuntimeEventStoreRecord[]): string[] {
-  const ledgers = ledgerRecords(records)
-  return eventRecords(records).flatMap((event) => {
-    const ledger = ledgers.find((entry) => entry.runId === event.runId && entry.sessionId === event.sessionId && entry.rawEvent === event.rawEvent && entry.openclawEvent === event.openclawEvent)
-    if (!ledger) return [`${event.runId}:${event.openclawEvent}:missing-ledger`]
-    const expectedStatus = event.success === true ? "success" : "failure"
-    const failures: string[] = []
-    if (ledger.status !== expectedStatus) failures.push(`${event.runId}:${event.openclawEvent}:status:${ledger.status}:${expectedStatus}`)
-    if (!ledger.ledgerId || !ledger.createdAt) failures.push(`${event.runId}:${event.openclawEvent}:missing-ledger-id-or-created-at`)
-    if (ledger.projectPath !== event.projectPath || ledger.tmuxPaneId !== event.tmuxPaneId || ledger.tmuxSession !== event.tmuxSession) failures.push(`${event.runId}:${event.openclawEvent}:context-mismatch`)
-    if (event.success === true && ledger.messageId !== event.messageId) failures.push(`${event.runId}:${event.openclawEvent}:message-id-mismatch`)
-    return failures
-  })
-}
-
 function resolveOutPath(out: string): string {
   return isAbsolute(out) ? out : resolve(out === ".omo" || out.startsWith(".omo/") ? join(process.cwd(), "../..", out) : out)
-}
-
-function readStoreFromRestartedProcess(stateDir: string, writerRecords: readonly RuntimeEventStoreRecord[]): RestartProof {
-  const childCommand = [process.execPath, fileURLToPath(import.meta.url), "--read-store", stateDir]
-  const child = Bun.spawnSync({ cmd: childCommand, stdout: "pipe", stderr: "pipe" })
-  const childOutput = new TextDecoder().decode(child.stdout)
-  const childErrorOutput = new TextDecoder().decode(child.stderr)
-  const writerIdentity = storeIdentity(writerRecords)
-  const reader = child.exitCode === 0 ? parseReaderOutput(childOutput) : null
-  const readerIdentity = reader?.identity ?? null
-  return {
-    childCommand: childCommand.map((part) => JSON.stringify(part)).join(" "),
-    childExitCode: child.exitCode,
-    childOutput,
-    childErrorOutput,
-    childStorePath: reader?.storePath ?? null,
-    writerIdentity,
-    readerIdentity,
-    sameIds: readerIdentity !== null && sameStoreIds(writerIdentity, readerIdentity),
-    sameSequences: readerIdentity !== null && sameStringList(writerIdentity.eventSequences, readerIdentity.eventSequences),
-  }
-}
-
-function parseReaderOutput(output: string): ReaderOutput | null {
-  try {
-    return JSON.parse(output) as ReaderOutput
-  } catch (error) {
-    if (error instanceof SyntaxError) return null
-    throw error
-  }
-}
-
-function readerRecordsFromProof(proof: RestartProof): readonly RuntimeEventStoreRecord[] {
-  const reader = parseReaderOutput(proof.childOutput)
-  return reader?.records ?? []
-}
-
-function writeReaderOutput(stateDir: string): void {
-  process.env.XDG_DATA_HOME = stateDir
-  const records = loadRuntimeEventStoreRecords()
-  const output: ReaderOutput = { stateDir, storePath: getRuntimeEventStorePath(), counts: countByKind(records), identity: storeIdentity(records), records }
-  process.stdout.write(JSON.stringify(output))
 }
 
 async function runProbe(options: ProbeOptions): Promise<ProbeSummary> {
@@ -198,7 +83,7 @@ async function runProbe(options: ProbeOptions): Promise<ProbeSummary> {
 
   const storePath = getRuntimeEventStorePath()
   const writerRecords = loadRuntimeEventStoreRecords()
-  const restartProof = readStoreFromRestartedProcess(stateDir, writerRecords)
+  const restartProof = readStoreFromRestartedProcess(stateDir, writerRecords, import.meta.url)
   const records = readerRecordsFromProof(restartProof)
   const duplicateIds = duplicateCorrelationIds(records)
   const sequenceFailures = runSequenceFailures(records)

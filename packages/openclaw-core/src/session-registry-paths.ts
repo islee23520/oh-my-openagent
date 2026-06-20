@@ -43,3 +43,7 @@ export function getRegistryPath(): string {
 export function getRegistryLockPath(): string {
   return resolveRegistryPaths().registryLockPath
 }
+
+export function resetRegistryPathCacheForTest(): void {
+  cachedRegistryPaths = null
+}
