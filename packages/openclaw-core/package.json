@@ -21,7 +21,8 @@
     "test": "bun test --isolate src/*.test.ts src/**/*.test.ts",
     "openclaw:probe-envelope": "bun src/probes/openclaw-probe-envelope.ts",
     "openclaw:probe-policy": "bun src/probes/openclaw-probe-policy.ts",
-    "openclaw:probe-memory": "bun src/probes/openclaw-probe-memory.ts"
+    "openclaw:probe-memory": "bun src/probes/openclaw-probe-memory.ts",
+    "openclaw:probe-workload": "bun src/probes/openclaw-probe-workload.ts"
   },
   "dependencies": {
     "@oh-my-opencode/tmux-core": "workspace:*",
