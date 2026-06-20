@@ -11,7 +11,9 @@ interface OpenClawReadError {
 export function badOpenClawReadRequest(error: unknown): NextResponse<OpenClawReadError> {
   if (error instanceof InvalidCursorError) {
     return NextResponse.json(
-      { error: { code: "invalid_cursor", message: "cursor must be a non-negative integer offset" } },
+      {
+        error: { code: "invalid_cursor", message: "cursor must be a non-negative integer offset" },
+      },
       { status: 400 },
     )
   }
