@@ -7,6 +7,7 @@
     "brand": "Oh My OpenAgent",
     "features": "Features",
     "agents": "Agents",
+    "openclaw": "OpenClaw",
     "docs": "Docs",
     "manifesto": "Manifesto",
     "starOnGitHub": "Star on GitHub"
@@ -422,6 +423,37 @@
     "finalCta": {
       "title": "just ulw ulw",
       "button": "Get Oh My OpenAgent"
+    }
+  },
+  "openclaw": {
+    "eyebrow": "OpenClaw Control Plane",
+    "title": "Runtime sessions, typed cards, and connector health",
+    "description": "A live operational dashboard backed by the OpenClaw read API. It tracks sessions, runs, events, ledger entries, connectors, and envelope-rendered status cards without creating a second chat surface.",
+    "sessionFilterLabel": "Session filter",
+    "refresh": "Refresh",
+    "loading": "Loading control-plane data...",
+    "errorTitle": "OpenClaw data unavailable",
+    "errorBody": "The dashboard shell is still available, but the read API returned an error.",
+    "emptyTitle": "No runtime records found",
+    "emptyBody": "Seed or run an OpenClaw session, then refresh this page to inspect sessions, events, ledger entries, connectors, and cards.",
+    "invalidEnvelope": "Invalid envelope",
+    "sections": {
+      "health": "Health",
+      "sessions": "Sessions",
+      "runs": "Runs",
+      "events": "Events",
+      "ledger": "Ledger",
+      "connectors": "Connectors",
+      "cards": "Typed cards"
+    },
+    "fields": {
+      "latestEvent": "Latest event",
+      "runCount": "Runs",
+      "eventCount": "Events",
+      "ledgerCount": "Ledger",
+      "status": "Status",
+      "platform": "Platform",
+      "gateway": "Gateway"
     }
   }
 }
