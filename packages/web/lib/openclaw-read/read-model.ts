@@ -28,7 +28,10 @@ function byNewestSession(left: SessionSummary, right: SessionSummary): number {
 }
 
 function byNewestRun(left: RuntimeRunRecord, right: RuntimeRunRecord): number {
-  return Date.parse(right.startedAt) - Date.parse(left.startedAt) || left.runId.localeCompare(right.runId)
+  return (
+    Date.parse(right.startedAt) - Date.parse(left.startedAt) ||
+    left.runId.localeCompare(right.runId)
+  )
 }
 
 function byNewestEvent(left: RuntimeEventRecord, right: RuntimeEventRecord): number {
@@ -36,11 +39,17 @@ function byNewestEvent(left: RuntimeEventRecord, right: RuntimeEventRecord): num
 }
 
 function byNewestLedger(left: RuntimeLedgerEntryRecord, right: RuntimeLedgerEntryRecord): number {
-  return Date.parse(right.createdAt) - Date.parse(left.createdAt) || left.ledgerId.localeCompare(right.ledgerId)
+  return (
+    Date.parse(right.createdAt) - Date.parse(left.createdAt) ||
+    left.ledgerId.localeCompare(right.ledgerId)
+  )
 }
 
 function byNewestConnector(left: ConnectorSummary, right: ConnectorSummary): number {
-  return Date.parse(right.latestSeenAt) - Date.parse(left.latestSeenAt) || left.connectorId.localeCompare(right.connectorId)
+  return (
+    Date.parse(right.latestSeenAt) - Date.parse(left.latestSeenAt) ||
+    left.connectorId.localeCompare(right.connectorId)
+  )
 }
 
 export function readOpenClawHealth(): OpenClawHealth {
@@ -127,7 +136,9 @@ export function readOpenClawConnectors(query: ConnectorQuery): PageResult<Connec
   const connectors = readConnectorsFromRecords(runtimeRecords())
     .filter((connector) => query.platform === null || connector.platform === query.platform)
     .filter((connector) => query.gateway === null || connector.gateway === query.gateway)
-    .filter((connector) => query.sessionId === null || connectorHasSession(connector, query.sessionId))
+    .filter(
+      (connector) => query.sessionId === null || connectorHasSession(connector, query.sessionId),
+    )
     .map(({ sessionIds: _sessionIds, ...connector }) => connector)
     .sort(byNewestConnector)
   return paginate(connectors, query)
@@ -141,7 +152,10 @@ function summarizeEvent({ rawEvent: _rawEvent, ...event }: RuntimeEventRecord): 
   return event
 }
 
-function summarizeLedger({ rawEvent: _rawEvent, ...entry }: RuntimeLedgerEntryRecord): LedgerSummary {
+function summarizeLedger({
+  rawEvent: _rawEvent,
+  ...entry
+}: RuntimeLedgerEntryRecord): LedgerSummary {
   return entry
 }
 
@@ -157,7 +171,9 @@ function connectorStatus(failureCount: number): ConnectorSummary["status"] {
   return failureCount > 0 ? "degraded" : "healthy"
 }
 
-function readConnectorsFromRecords(records: readonly RuntimeEventStoreRecord[]): readonly ConnectorAccumulator[] {
+function readConnectorsFromRecords(
+  records: readonly RuntimeEventStoreRecord[],
+): readonly ConnectorAccumulator[] {
   const connectors = new Map<string, ConnectorAccumulator>()
   for (const record of records) {
     if (record.kind !== "event" && record.kind !== "ledger") continue
@@ -165,7 +181,8 @@ function readConnectorsFromRecords(records: readonly RuntimeEventStoreRecord[]):
     const key = connectorKey(record.platform, record.gateway)
     const existing = connectors.get(key)
     const isFailure =
-      (record.kind === "event" && record.success === false) || (record.kind === "ledger" && record.status === "failure")
+      (record.kind === "event" && record.success === false) ||
+      (record.kind === "ledger" && record.status === "failure")
     const latestSeenAt =
       existing === undefined || Date.parse(record.createdAt) > Date.parse(existing.latestSeenAt)
         ? record.createdAt

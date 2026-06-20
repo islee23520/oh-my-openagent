@@ -202,18 +202,26 @@ export function runtimeRecords(): readonly RuntimeEventStoreRecord[] {
   )
 }
 
-export function sessionsOf(allRecords: readonly RuntimeEventStoreRecord[]): readonly RuntimeSessionRecord[] {
+export function sessionsOf(
+  allRecords: readonly RuntimeEventStoreRecord[],
+): readonly RuntimeSessionRecord[] {
   return allRecords.filter((record): record is RuntimeSessionRecord => record.kind === "session")
 }
 
-export function runsOf(allRecords: readonly RuntimeEventStoreRecord[]): readonly RuntimeRunRecord[] {
+export function runsOf(
+  allRecords: readonly RuntimeEventStoreRecord[],
+): readonly RuntimeRunRecord[] {
   return allRecords.filter((record): record is RuntimeRunRecord => record.kind === "run")
 }
 
-export function eventsOf(allRecords: readonly RuntimeEventStoreRecord[]): readonly RuntimeEventRecord[] {
+export function eventsOf(
+  allRecords: readonly RuntimeEventStoreRecord[],
+): readonly RuntimeEventRecord[] {
   return allRecords.filter((record): record is RuntimeEventRecord => record.kind === "event")
 }
 
-export function ledgerOf(allRecords: readonly RuntimeEventStoreRecord[]): readonly RuntimeLedgerEntryRecord[] {
+export function ledgerOf(
+  allRecords: readonly RuntimeEventStoreRecord[],
+): readonly RuntimeLedgerEntryRecord[] {
   return allRecords.filter((record): record is RuntimeLedgerEntryRecord => record.kind === "ledger")
 }
