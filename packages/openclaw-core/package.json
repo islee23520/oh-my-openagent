@@ -18,6 +18,7 @@
   "scripts": {
     "typecheck": "tsgo --noEmit -p tsconfig.json",
     "openclaw:probe-runtime-store": "bun src/openclaw-runtime-store-probe.ts",
+    "openclaw:probe-envelope": "bun src/probes/openclaw-probe-envelope.ts",
     "test": "bun test --isolate src/*.test.ts src/**/*.test.ts"
   },
   "dependencies": {
