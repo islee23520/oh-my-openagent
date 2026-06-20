@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, w
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import * as sessionRegistryModule from "../session-registry"
-import { getRegistryPath } from "../session-registry-paths"
+import { getRegistryPath, resetRegistryPathCacheForTest } from "../session-registry-paths"
 import type { SessionMapping } from "../session-registry"
 
 const originalXdgDataHome = process.env.XDG_DATA_HOME
@@ -32,12 +32,14 @@ function resetRegistry(): void {
 
 beforeEach(() => {
   process.env.XDG_DATA_HOME = tempDataHome
+  resetRegistryPathCacheForTest()
   resetRegistry()
 })
 
 afterAll(() => {
   if (originalXdgDataHome === undefined) delete process.env.XDG_DATA_HOME
   else process.env.XDG_DATA_HOME = originalXdgDataHome
+  resetRegistryPathCacheForTest()
 
   rmSync(tempDataHome, { recursive: true, force: true })
 })
