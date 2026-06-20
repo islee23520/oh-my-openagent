@@ -143,5 +143,6 @@ export async function initializeOpenClaw(config: OpenClawConfig): Promise<void> 
 }
 
 export { startReplyListener, stopReplyListener }
+export * from "./openclaw-policy"
 export * from "./openclaw-envelope"
 export type * from "./types"
