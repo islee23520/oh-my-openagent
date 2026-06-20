@@ -1,0 +1,33 @@
+Stop-hook verification #3 live scenario for issue #9 expanded read API
+timestamp: 2026-06-20T07:48:34Z
+worktree: /Users/ilseoblee/workspace/ULW/.worktrees/openclaw-control-plane/9-dashboard-read-api-recovery
+
+== prior verification dependency checks ==
+prior_type_lint_e2e_from_verification_2: PASS
+
+== corrected live server curl proof ==
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   384    0   384    0     0   3968      0 --:--:-- --:--:-- --:--:--  4000
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   544    0   544    0     0   8766      0 --:--:-- --:--:-- --:--:--  8918
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   953    0   953    0     0  17386      0 --:--:-- --:--:-- --:--:-- 17648
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    96    0    96    0     0  13549      0 --:--:-- --:--:-- --:--:-- 13714
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   981    0   981    0     0  16984      0 --:--:-- --:--:-- --:--:-- 17210
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   287    0   287    0     0   4893      0 --:--:-- --:--:-- --:--:--  4948
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    92    0    92    0     0  13051      0 --:--:-- --:--:-- --:--:-- 13142
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    92    0    92    0     0  14748      0 --:--:-- --:--:-- --:--:-- 15333
+live_curl_rerun: PASS
