@@ -1,5 +1,0 @@
-Stop-hook cleanup receipt #3
-server stopped
-COMMAND   PID      USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
-node    17316 ilseoblee   13u  IPv4 0x2055f2c361974e19      0t0  TCP 127.0.0.1:43109 (LISTEN)
-result: FAIL port still has listener

@@ -1,5 +1,0 @@
-No-mutation cmp for invalid cursor requests
-before: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-store-before-invalid.json
-after: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-store-after-invalid.json
-result: PASS byte-identical store before/after invalid cursor requests
-after_sha256: 5c32019b7b85a70d8aa4d313751f9beb2940ee5310a7df7fa107dfdb7059ecc9  .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-store-after-invalid.json

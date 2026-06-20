@@ -1,2 +1,0 @@
-Stop-hook cleanup receipt #6
-result: PASS no listener on 43109

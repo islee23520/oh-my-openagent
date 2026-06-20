@@ -1,5 +1,0 @@
-Stop-hook cleanup repair #4
-timestamp: 2026-06-20T07:50:20Z
-before_lsof:
-after_lsof:
-result: PASS no listener on 43109
