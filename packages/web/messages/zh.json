@@ -7,6 +7,7 @@
     "brand": "Oh My OpenAgent",
     "features": "功能特性",
     "agents": "Agents",
+    "openclaw": "OpenClaw",
     "docs": "文档",
     "manifesto": "宣言",
     "starOnGitHub": "在 GitHub 上标星"
@@ -422,6 +423,37 @@
     "finalCta": {
       "title": "只需 ulw ulw",
       "button": "获取 Oh My OpenAgent"
+    }
+  },
+  "openclaw": {
+    "eyebrow": "OpenClaw Control Plane",
+    "title": "运行时会话、类型卡片与连接器状态",
+    "description": "由 OpenClaw read API 驱动的运维仪表盘。它跟踪会话、运行、事件、账本、连接器和 envelope 渲染状态卡，不创建第二个聊天界面。",
+    "sessionFilterLabel": "会话过滤",
+    "refresh": "刷新",
+    "loading": "正在加载控制平面数据...",
+    "errorTitle": "OpenClaw 数据不可用",
+    "errorBody": "仪表盘外壳仍可使用，但 read API 返回了错误。",
+    "emptyTitle": "未找到运行时记录",
+    "emptyBody": "种子或运行一个 OpenClaw 会话，然后刷新页面查看会话、事件、账本、连接器和卡片。",
+    "invalidEnvelope": "无效 envelope",
+    "sections": {
+      "health": "健康状态",
+      "sessions": "会话",
+      "runs": "运行",
+      "events": "事件",
+      "ledger": "账本",
+      "connectors": "连接器",
+      "cards": "类型卡片"
+    },
+    "fields": {
+      "latestEvent": "最新事件",
+      "runCount": "运行",
+      "eventCount": "事件",
+      "ledgerCount": "账本",
+      "status": "状态",
+      "platform": "平台",
+      "gateway": "网关"
     }
   }
 }

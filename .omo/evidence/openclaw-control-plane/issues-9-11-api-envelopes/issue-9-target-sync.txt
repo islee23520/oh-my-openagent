@@ -1,0 +1,16 @@
+{
+  "source": "/Users/ilseoblee/workspace/ULW/.worktrees/openclaw-control-plane/9-dashboard-read-api-recovery/.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes",
+  "target": "/Users/ilseoblee/workspace/ULW/oh-my-openagent/.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes",
+  "copied": true,
+  "appended_ledgers": [
+    "/Users/ilseoblee/workspace/ULW/oh-my-openagent/.omo/start-work/ledger.jsonl",
+    "/Users/ilseoblee/workspace/ULW/oh-my-openagent/.omo/ulw-loop/019ed9c1-d744-7761-bb00-d777701af9f3/ledger.jsonl"
+  ],
+  "plan_checkbox_marked": false,
+  "final_artifacts_copied": [
+    "issue-9-done-claim.json",
+    "issue-9-git-status.txt",
+    "issue-9-diff.patch"
+  ],
+  "updated_after_done_claim": true
+}

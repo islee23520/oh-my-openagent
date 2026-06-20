@@ -34,6 +34,9 @@ export function NavHeader(): JSX.Element {
             <Link href="/#agents" className="transition-colors hover:text-cyan-400">
               {t("agents")}
             </Link>
+            <Link href="/openclaw" className="transition-colors hover:text-cyan-400">
+              {t("openclaw")}
+            </Link>
             <Link href="/docs" className="transition-colors hover:text-cyan-400">
               {t("docs")}
             </Link>
@@ -102,6 +105,13 @@ export function NavHeader(): JSX.Element {
             onClick={() => setIsOpen(false)}
           >
             {t("docs")}
+          </Link>
+          <Link
+            href="/openclaw"
+            className="flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-zinc-900 hover:text-cyan-400"
+            onClick={() => setIsOpen(false)}
+          >
+            {t("openclaw")}
           </Link>
           <Link
             href="/manifesto"

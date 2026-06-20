@@ -1,0 +1,23 @@
+$ next dev --hostname "127.0.0.1" --port "43109"
+   ▲ Next.js 15.5.18
+   - Local:        http://127.0.0.1:43109
+   - Network:      http://127.0.0.1:43109
+
+ ✓ Starting...
+ ✓ Ready in 972ms
+ ✓ Compiled /api/openclaw/health in 209ms (303 modules)
+ GET /api/openclaw/health 200 in 290ms
+ ✓ Compiled /api/openclaw/sessions in 67ms (306 modules)
+ GET /api/openclaw/sessions?sessionId=qa-session-9-stop-hook-6 200 in 93ms
+ ✓ Compiled /api/openclaw/runs in 43ms (308 modules)
+ GET /api/openclaw/runs?sessionId=qa-session-9-stop-hook-6 200 in 62ms
+ ✓ Compiled /api/openclaw/events in 45ms (310 modules)
+ GET /api/openclaw/events?sessionId=qa-session-9-stop-hook-6 200 in 58ms
+ GET /api/openclaw/health 200 in 5ms
+ ✓ Compiled /api/openclaw/ledger in 41ms (312 modules)
+ GET /api/openclaw/ledger?sessionId=qa-session-9-stop-hook-6 200 in 54ms
+ ✓ Compiled /api/openclaw/connectors in 44ms (314 modules)
+ GET /api/openclaw/connectors?sessionId=qa-session-9-stop-hook-6 200 in 57ms
+ GET /api/openclaw/ledger?sessionId=qa-session-9-stop-hook-6&cursor=bad-cursor 400 in 5ms
+ GET /api/openclaw/connectors?sessionId=qa-session-9-stop-hook-6&cursor=bad-cursor 400 in 5ms
+[?25h

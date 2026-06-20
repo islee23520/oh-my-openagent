@@ -1,0 +1,104 @@
+{
+  "DoneClaim": {
+    "task": "Todo 4 / issue #9 dashboard read API recovery",
+    "issue": "https://github.com/islee23520/lina-agent/issues/9",
+    "status": "DONE",
+    "committed_ready": true,
+    "committed": false,
+    "branch": "agent/issue-9-dashboard-read-api-recovery",
+    "worktree": "/Users/ilseoblee/workspace/ULW/.worktrees/openclaw-control-plane/9-dashboard-read-api-recovery",
+    "base_dependency": "origin/agent/issue-8-runtime-event-store@4cdb9d2bfaf559f4dca8b614d6d3c5ae0b3552ae",
+    "plan_checkbox_marked": false,
+    "ledger_connectors_red_captured": true,
+    "changed_files": [
+      "packages/web/app/api/openclaw/connectors/route.ts",
+      "packages/web/app/api/openclaw/events/route.ts",
+      "packages/web/app/api/openclaw/health/route.ts",
+      "packages/web/app/api/openclaw/ledger/route.ts",
+      "packages/web/app/api/openclaw/runs/route.ts",
+      "packages/web/app/api/openclaw/sessions/route.ts",
+      "packages/web/e2e/openclaw-api.spec.ts",
+      "packages/web/lib/openclaw-read/http.ts",
+      "packages/web/lib/openclaw-read/pagination.ts",
+      "packages/web/lib/openclaw-read/read-model.ts",
+      "packages/web/lib/openclaw-read/store.ts",
+      "packages/web/lib/openclaw-read/types.ts"
+    ],
+    "source_decisions": {
+      "ledger": "Reads persisted #8 runtime JSONL kind=ledger records from XDG_DATA_HOME/opencode/storage/openclaw/runtime-events.jsonl through the web read helper.",
+      "connectors": "Read-only deterministic connector summaries derived from persisted event/ledger platform+gateway metadata; empty or unmatched records return an empty paginated data array."
+    },
+    "red_evidence": {
+      "scenario": "Before production edits, curl -i ledger/connectors endpoints on 127.0.0.1:43109 returned 404.",
+      "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-ledger-connectors-red.txt"
+    },
+    "green_evidence": {
+      "type_check": {
+        "invocation": "cd packages/web && bun run type-check",
+        "observable": "exit_status=0",
+        "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-web-type-check.txt"
+      },
+      "lint": {
+        "invocation": "cd packages/web && bun run lint",
+        "observable": "exit_status=0",
+        "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-web-lint.txt"
+      },
+      "e2e": {
+        "invocation": "cd packages/web && XDG_DATA_HOME=$(mktemp -d) bun run test:e2e -- e2e/openclaw-api.spec.ts --project=chromium",
+        "observable": "3 passed; exit_status=0",
+        "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-test-output.txt"
+      },
+      "live_curl_matrix": {
+        "invocation": "curl -i against /api/openclaw/sessions, /runs, /events, /health, /ledger, /connectors on http://127.0.0.1:43109",
+        "observable": "all six endpoints returned HTTP/1.1 200 OK with JSON bodies",
+        "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-live-matrix.txt"
+      }
+    },
+    "live_curl_artifacts": {
+      "sessions_runs_events_health_ledger_connectors": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-live-matrix.txt",
+      "seed": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/qa-session-9-live-seed.json"
+    },
+    "invalid_cursor_no_mutation": {
+      "invalid_cursor_artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-invalid.txt",
+      "store_before": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-store-before-invalid.json",
+      "store_after": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-store-after-invalid.json",
+      "no_mutation_artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-no-mutation.txt",
+      "observable": "ledger/connectors invalid cursor returned HTTP/1.1 400 Bad Request and cmp reported byte-identical store before/after"
+    },
+    "cleanup": {
+      "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-cleanup.txt",
+      "port_check": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-port-check.txt",
+      "observable": "dev server stopped, isolated XDG_DATA_HOME removed, no listener on port 43109"
+    },
+    "staging": {
+      "staged": true,
+      "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-git-status.txt",
+      "diff_artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-diff.patch"
+    },
+    "target_sync": {
+      "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-target-sync.txt",
+      "target_evidence_dir": "/Users/ilseoblee/workspace/ULW/oh-my-openagent/.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes",
+      "ledgers_appended_if_present": [
+        "/Users/ilseoblee/workspace/ULW/oh-my-openagent/.omo/start-work/ledger.jsonl",
+        "/Users/ilseoblee/workspace/ULW/oh-my-openagent/.omo/ulw-loop/019ed9c1-d744-7761-bb00-d777701af9f3/ledger.jsonl"
+      ]
+    },
+    "reviewer_gate": {
+      "attempted": true,
+      "approved": false,
+      "reason": "multi_agent_v1.spawn_agent failed with agent thread limit reached for both plan and gate reviewer attempts; no reviewer approval claimed."
+    },
+    "risks": [
+      "Reviewer subagent approval unavailable due current thread limit; root self-review recorded in issue-9-recovery-notepad.md."
+    ],
+    "stop_hook_verification": {
+      "artifact": ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-stop-hook-verification-6.txt",
+      "verdict": "PASS",
+      "rerun_artifacts": [
+        ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-stop-hook-live-matrix-6.txt",
+        ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-stop-hook-invalid-6.txt",
+        ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-stop-hook-cleanup-6.txt"
+      ]
+    }
+  }
+}

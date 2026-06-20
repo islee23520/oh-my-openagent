@@ -7,6 +7,7 @@
     "brand": "Oh My OpenAgent",
     "features": "機能",
     "agents": "エージェント",
+    "openclaw": "OpenClaw",
     "docs": "ドキュメント",
     "manifesto": "マニフェスト",
     "starOnGitHub": "GitHubでスターをつける"
@@ -422,6 +423,37 @@
     "finalCta": {
       "title": "just ulw ulw",
       "button": "Oh My OpenAgentを入手"
+    }
+  },
+  "openclaw": {
+    "eyebrow": "OpenClaw Control Plane",
+    "title": "ランタイムセッション、型付きカード、コネクター状態",
+    "description": "OpenClaw read APIで動く運用ダッシュボードです。二つ目のチャット画面を作らず、セッション、実行、イベント、台帳、コネクター、envelope由来の状態カードを追跡します。",
+    "sessionFilterLabel": "セッションフィルター",
+    "refresh": "更新",
+    "loading": "コントロールプレーンデータを読み込み中...",
+    "errorTitle": "OpenClawデータを利用できません",
+    "errorBody": "ダッシュボードシェルは利用できますが、read APIがエラーを返しました。",
+    "emptyTitle": "ランタイム記録がありません",
+    "emptyBody": "OpenClawセッションをシードまたは実行してから更新すると、セッション、イベント、台帳、コネクター、カードを確認できます。",
+    "invalidEnvelope": "無効なenvelope",
+    "sections": {
+      "health": "ヘルス",
+      "sessions": "セッション",
+      "runs": "実行",
+      "events": "イベント",
+      "ledger": "台帳",
+      "connectors": "コネクター",
+      "cards": "型付きカード"
+    },
+    "fields": {
+      "latestEvent": "最新イベント",
+      "runCount": "実行",
+      "eventCount": "イベント",
+      "ledgerCount": "台帳",
+      "status": "状態",
+      "platform": "プラットフォーム",
+      "gateway": "ゲートウェイ"
     }
   }
 }

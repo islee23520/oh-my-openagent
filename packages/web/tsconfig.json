@@ -26,6 +26,7 @@
       }
     ],
     "paths": {
+      "@oh-my-opencode/openclaw-core": ["../openclaw-core/src/openclaw-envelope.ts"],
       "@/*": ["./*"]
     }
   },

@@ -7,6 +7,7 @@
     "brand": "Oh My OpenAgent",
     "features": "Features",
     "agents": "Agents",
+    "openclaw": "OpenClaw",
     "docs": "Docs",
     "manifesto": "Manifesto",
     "starOnGitHub": "GitHub에서 Star"
@@ -422,6 +423,37 @@
     "finalCta": {
       "title": "just ulw ulw",
       "button": "Oh My OpenAgent 받기"
+    }
+  },
+  "openclaw": {
+    "eyebrow": "OpenClaw 컨트롤 플레인",
+    "title": "런타임 세션, 타입 카드, 커넥터 상태",
+    "description": "OpenClaw read API로 구동되는 운영 대시보드입니다. 두 번째 채팅 화면을 만들지 않고 세션, 실행, 이벤트, 원장, 커넥터, envelope 기반 상태 카드를 추적합니다.",
+    "sessionFilterLabel": "세션 필터",
+    "refresh": "새로고침",
+    "loading": "컨트롤 플레인 데이터 로딩 중...",
+    "errorTitle": "OpenClaw 데이터를 사용할 수 없음",
+    "errorBody": "대시보드 셸은 유지되지만 read API가 오류를 반환했습니다.",
+    "emptyTitle": "런타임 기록 없음",
+    "emptyBody": "OpenClaw 세션을 시드하거나 실행한 뒤 새로고침하면 세션, 이벤트, 원장, 커넥터, 카드를 확인할 수 있습니다.",
+    "invalidEnvelope": "잘못된 envelope",
+    "sections": {
+      "health": "상태",
+      "sessions": "세션",
+      "runs": "실행",
+      "events": "이벤트",
+      "ledger": "원장",
+      "connectors": "커넥터",
+      "cards": "타입 카드"
+    },
+    "fields": {
+      "latestEvent": "최근 이벤트",
+      "runCount": "실행",
+      "eventCount": "이벤트",
+      "ledgerCount": "원장",
+      "status": "상태",
+      "platform": "플랫폼",
+      "gateway": "게이트웨이"
     }
   }
 }
