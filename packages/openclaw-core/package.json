@@ -17,7 +17,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsgo --noEmit -p tsconfig.json",
-    "test": "bun test src/*.test.ts src/**/*.test.ts"
+    "openclaw:probe-runtime-store": "bun src/openclaw-runtime-store-probe.ts",
+    "test": "bun test --isolate src/*.test.ts src/**/*.test.ts"
   },
   "dependencies": {
     "@oh-my-opencode/tmux-core": "workspace:*",
