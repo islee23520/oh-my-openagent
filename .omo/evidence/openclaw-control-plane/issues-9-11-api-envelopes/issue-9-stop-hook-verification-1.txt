@@ -1,0 +1,67 @@
+Stop-hook verification for issue #9 expanded read API
+timestamp: 2026-06-20T07:43:12Z
+worktree: /Users/ilseoblee/workspace/ULW/.worktrees/openclaw-control-plane/9-dashboard-read-api-recovery
+
+== artifact presence ==
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-done-claim.json bytes=    5579
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-ledger-connectors-red.txt bytes=   52062
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-web-type-check.txt bytes=     115
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-web-lint.txt bytes=     264
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-test-output.txt bytes=   17344
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-live-matrix.txt bytes=    5426
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-invalid.txt bytes=    1142
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-no-mutation.txt bytes=     499
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-cleanup.txt bytes=     148
+present_nonempty: .omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-port-check.txt bytes=     105
+
+== artifact content checks ==
+artifact_content_checks: PASS
+
+== staged scope ==
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-invalid.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-live-matrix.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-api-test-output.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-cleanup.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-dev-server.log
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-diff.patch
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-done-claim.json
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-git-status.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-ledger-connectors-red.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-live-state-dir.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-loc-check.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-no-mutation.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-port-check.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-recovery-notepad.md
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-store-after-invalid.json
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-store-before-invalid.json
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-target-sync.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-web-lint.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/issue-9-web-type-check.txt
+.omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes/qa-session-9-live-seed.json
+packages/web/app/api/openclaw/connectors/route.ts
+packages/web/app/api/openclaw/events/route.ts
+packages/web/app/api/openclaw/health/route.ts
+packages/web/app/api/openclaw/ledger/route.ts
+packages/web/app/api/openclaw/runs/route.ts
+packages/web/app/api/openclaw/sessions/route.ts
+packages/web/e2e/openclaw-api.spec.ts
+packages/web/lib/openclaw-read/http.ts
+packages/web/lib/openclaw-read/pagination.ts
+packages/web/lib/openclaw-read/read-model.ts
+packages/web/lib/openclaw-read/store.ts
+packages/web/lib/openclaw-read/types.ts
+staged_scope: PASS
+
+== rerun type-check ==
+$ node ./scripts/generate-docs-content.mjs && tsgo --noEmit
+Docs content already current with 9 HTML-compiled docs
+type_check_rerun: PASS
+
+== rerun lint ==
+$ biome lint app components lib e2e scripts && eslint --cache --cache-location .next/cache/eslint/.eslintcache "app/**/*.{ts,tsx}" "components/**/*.{ts,tsx}" "lib/**/*.{ts,tsx,mjs}" "e2e/**/*.{ts,tsx}" "scripts/**/*.mjs"
+Checked 72 files in 5ms. No fixes applied.
+lint_rerun: PASS
+
+== rerun e2e ==
+/bin/bash: -c: line 61: syntax error near unexpected token `('
+/bin/bash: line 61: LIVE_XDG: unbound variable
