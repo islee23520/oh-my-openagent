@@ -38,6 +38,7 @@ export default async function OpenClawPage({
         ledger: t("sections.ledger"),
         connectors: t("sections.connectors"),
         cards: t("sections.cards"),
+        memory: t("sections.memory"),
         invalidEnvelope: t("invalidEnvelope"),
         latestEvent: t("fields.latestEvent"),
         runCount: t("fields.runCount"),
@@ -46,6 +47,8 @@ export default async function OpenClawPage({
         status: t("fields.status"),
         platform: t("fields.platform"),
         gateway: t("fields.gateway"),
+        sourceSession: t("fields.sourceSession"),
+        pinned: t("fields.pinned"),
       }}
       initialSessionId={params.sessionId ?? ""}
       forceApiError={process.env.OPENCLAW_FORCE_API_ERROR === "1"}

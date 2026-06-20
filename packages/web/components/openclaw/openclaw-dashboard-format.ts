@@ -19,14 +19,17 @@ export function statusClass(status: string): string {
     case "healthy":
     case "success":
     case "completed":
+    case "active":
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
     case "degraded":
     case "failure":
     case "failed":
     case "danger":
+    case "denied":
       return "border-red-500/30 bg-red-500/10 text-red-300"
     case "warning":
     case "blocked":
+    case "deleted":
       return "border-amber-500/30 bg-amber-500/10 text-amber-300"
     default:
       return "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"

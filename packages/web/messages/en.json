@@ -444,7 +444,8 @@
       "events": "Events",
       "ledger": "Ledger",
       "connectors": "Connectors",
-      "cards": "Typed cards"
+      "cards": "Typed cards",
+      "memory": "Governed memory"
     },
     "fields": {
       "latestEvent": "Latest event",
@@ -453,7 +454,9 @@
       "ledgerCount": "Ledger",
       "status": "Status",
       "platform": "Platform",
-      "gateway": "Gateway"
+      "gateway": "Gateway",
+      "sourceSession": "Source session",
+      "pinned": "Pinned"
     }
   }
 }

@@ -444,7 +444,8 @@
       "events": "이벤트",
       "ledger": "원장",
       "connectors": "커넥터",
-      "cards": "타입 카드"
+      "cards": "타입 카드",
+      "memory": "관리 메모리"
     },
     "fields": {
       "latestEvent": "최근 이벤트",
@@ -453,7 +454,9 @@
       "ledgerCount": "원장",
       "status": "상태",
       "platform": "플랫폼",
-      "gateway": "게이트웨이"
+      "gateway": "게이트웨이",
+      "sourceSession": "원본 세션",
+      "pinned": "고정됨"
     }
   }
 }

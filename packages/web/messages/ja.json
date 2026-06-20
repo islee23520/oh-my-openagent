@@ -444,7 +444,8 @@
       "events": "イベント",
       "ledger": "台帳",
       "connectors": "コネクター",
-      "cards": "型付きカード"
+      "cards": "型付きカード",
+      "memory": "管理メモリ"
     },
     "fields": {
       "latestEvent": "最新イベント",
@@ -453,7 +454,9 @@
       "ledgerCount": "台帳",
       "status": "状態",
       "platform": "プラットフォーム",
-      "gateway": "ゲートウェイ"
+      "gateway": "ゲートウェイ",
+      "sourceSession": "元セッション",
+      "pinned": "固定"
     }
   }
 }

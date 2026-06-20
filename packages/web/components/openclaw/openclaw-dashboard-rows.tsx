@@ -7,6 +7,7 @@ import type {
   DashboardData,
   EventSummary,
   LedgerSummary,
+  MemorySummary,
   RunSummary,
   SessionSummary,
 } from "./openclaw-dashboard-types"
@@ -113,6 +114,37 @@ export function ConnectorRow({
         <Badge variant="outline" className={statusClass(connector.status)}>
           {connector.status}
         </Badge>
+      </div>
+    </article>
+  )
+}
+
+export function MemoryRow({
+  memory,
+  copy,
+}: {
+  readonly memory: MemorySummary
+  readonly copy: DashboardCopy
+}): JSX.Element {
+  return (
+    <article className="p-4" data-testid={`memory-${memory.memoryId}`}>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="font-mono text-sm leading-6 text-zinc-100">{memory.summary}</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            {copy.sourceSession}: {memory.sourceSessionId} / {compactDate(memory.updatedAt)}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Badge variant="outline" className={statusClass(memory.status)}>
+            {memory.status}
+          </Badge>
+          {memory.pinned ? (
+            <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-200">
+              {copy.pinned}
+            </Badge>
+          ) : null}
+        </div>
       </div>
     </article>
   )
