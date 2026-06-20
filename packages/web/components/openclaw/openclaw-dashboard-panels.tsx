@@ -6,6 +6,7 @@ import {
   ConnectorRow,
   EventRow,
   LedgerRow,
+  MemoryRow,
   RunRow,
   SessionRow,
 } from "./openclaw-dashboard-rows"
@@ -107,7 +108,7 @@ export function DashboardBody({
   readonly data: DashboardData
   readonly copy: DashboardCopy
 }): JSX.Element {
-  const hasData = data.sessions.data.length > 0
+  const hasData = data.sessions.data.length > 0 || data.memory.data.length > 0
   if (!hasData) return <EmptyState copy={copy} />
   return (
     <div className="space-y-6" data-testid="openclaw-dashboard-ready">
@@ -172,6 +173,11 @@ export function DashboardBody({
         <Panel title={copy.connectors}>
           {data.connectors.data.map((connector) => (
             <ConnectorRow key={connector.connectorId} connector={connector} copy={copy} />
+          ))}
+        </Panel>
+        <Panel title={copy.memory}>
+          {data.memory.data.map((memory) => (
+            <MemoryRow key={memory.memoryId} memory={memory} copy={copy} />
           ))}
         </Panel>
       </div>

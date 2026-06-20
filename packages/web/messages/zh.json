@@ -444,7 +444,8 @@
       "events": "事件",
       "ledger": "账本",
       "connectors": "连接器",
-      "cards": "类型卡片"
+      "cards": "类型卡片",
+      "memory": "受管记忆"
     },
     "fields": {
       "latestEvent": "最新事件",
@@ -453,7 +454,9 @@
       "ledgerCount": "账本",
       "status": "状态",
       "platform": "平台",
-      "gateway": "网关"
+      "gateway": "网关",
+      "sourceSession": "来源会话",
+      "pinned": "已固定"
     }
   }
 }

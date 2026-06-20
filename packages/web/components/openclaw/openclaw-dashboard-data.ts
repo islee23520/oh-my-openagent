@@ -3,6 +3,7 @@ import type {
   DashboardData,
   EventSummary,
   LedgerSummary,
+  MemorySummary,
   OpenClawHealth,
   PageResult,
   RunSummary,
@@ -158,6 +159,22 @@ function parseConnector(value: unknown): ConnectorSummary | null {
   }
 }
 
+function parseMemory(value: unknown): MemorySummary | null {
+  if (!isRecord(value)) return null
+  const memoryId = stringField(value, "memoryId")
+  const status = value["status"]
+  if (memoryId.length === 0) return null
+  if (status !== "active" && status !== "deleted" && status !== "denied") return null
+  return {
+    memoryId,
+    summary: stringField(value, "summary"),
+    status,
+    pinned: booleanField(value, "pinned") ?? false,
+    sourceSessionId: stringField(value, "sourceSessionId"),
+    updatedAt: stringField(value, "updatedAt"),
+  }
+}
+
 function parseHealth(value: unknown): OpenClawHealth {
   const fallback: OpenClawHealth = {
     ok: true,
@@ -195,14 +212,16 @@ export async function loadOpenClawDashboardData(
   if (forceApiError) {
     await getJson("/api/openclaw/sessions?cursor=bad-cursor")
   }
-  const [healthRaw, sessionsRaw, runsRaw, eventsRaw, ledgerRaw, connectorsRaw] = await Promise.all([
-    getJson("/api/openclaw/health"),
-    getJson(`/api/openclaw/sessions${query}`),
-    getJson(`/api/openclaw/runs${query}`),
-    getJson(`/api/openclaw/events${query}`),
-    getJson(`/api/openclaw/ledger${query}`),
-    getJson(`/api/openclaw/connectors${query}`),
-  ])
+  const [healthRaw, sessionsRaw, runsRaw, eventsRaw, ledgerRaw, connectorsRaw, memoryRaw] =
+    await Promise.all([
+      getJson("/api/openclaw/health"),
+      getJson(`/api/openclaw/sessions${query}`),
+      getJson(`/api/openclaw/runs${query}`),
+      getJson(`/api/openclaw/events${query}`),
+      getJson(`/api/openclaw/ledger${query}`),
+      getJson(`/api/openclaw/connectors${query}`),
+      getJson("/api/openclaw/memory"),
+    ])
   const ledger = parsePage(ledgerRaw, parseLedger)
   const runs = parsePage(runsRaw, parseRun)
   const envelopeState = cardsFromRuns(runs.data, ledger.data, forceInvalidEnvelope)
@@ -213,6 +232,7 @@ export async function loadOpenClawDashboardData(
     events: parsePage(eventsRaw, parseEvent),
     ledger,
     connectors: parsePage(connectorsRaw, parseConnector),
+    memory: parsePage(memoryRaw, parseMemory),
     cards: envelopeState.cards,
     invalidEnvelopeMessage: envelopeState.invalidEnvelopeMessage,
   }

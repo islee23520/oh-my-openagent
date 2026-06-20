@@ -87,6 +87,15 @@ export interface ConnectorSummary {
   readonly source: "runtime-records"
 }
 
+export interface MemorySummary {
+  readonly memoryId: string
+  readonly summary: string
+  readonly status: "active" | "deleted" | "denied"
+  readonly pinned: boolean
+  readonly sourceSessionId: string
+  readonly updatedAt: string
+}
+
 export interface DashboardData {
   readonly health: OpenClawHealth
   readonly sessions: PageResult<SessionSummary>
@@ -94,6 +103,7 @@ export interface DashboardData {
   readonly events: PageResult<EventSummary>
   readonly ledger: PageResult<LedgerSummary>
   readonly connectors: PageResult<ConnectorSummary>
+  readonly memory: PageResult<MemorySummary>
   readonly cards: readonly OpenClawRenderableCard[]
   readonly invalidEnvelopeMessage: string | null
 }
@@ -116,6 +126,7 @@ export interface DashboardCopy {
   readonly ledger: string
   readonly connectors: string
   readonly cards: string
+  readonly memory: string
   readonly invalidEnvelope: string
   readonly latestEvent: string
   readonly runCount: string
@@ -124,4 +135,6 @@ export interface DashboardCopy {
   readonly status: string
   readonly platform: string
   readonly gateway: string
+  readonly sourceSession: string
+  readonly pinned: string
 }
