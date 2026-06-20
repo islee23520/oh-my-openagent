@@ -1,5 +1,0 @@
-packages/web/lib/openclaw-read/types.ts      121
-packages/web/lib/openclaw-read/read-model.ts      173
-packages/web/app/api/openclaw/ledger/route.ts       21
-packages/web/app/api/openclaw/connectors/route.ts       20
-packages/web/e2e/openclaw-api.spec.ts      249

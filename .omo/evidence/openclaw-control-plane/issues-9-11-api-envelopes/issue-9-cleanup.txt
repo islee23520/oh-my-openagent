@@ -1,4 +1,0 @@
-Cleanup receipt for issue #9 live QA
-dev_server_session: stopped with Ctrl-C
-removed_live_xdg: /tmp/openclaw-live-xdg.F47Yp0
-live_xdg_removed: true

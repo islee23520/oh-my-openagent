@@ -1,2 +1,0 @@
-$ biome lint app components lib e2e scripts && eslint --cache --cache-location .next/cache/eslint/.eslintcache "app/**/*.{ts,tsx}" "components/**/*.{ts,tsx}" "lib/**/*.{ts,tsx,mjs}" "e2e/**/*.{ts,tsx}" "scripts/**/*.mjs"
-Checked 72 files in 5ms. No fixes applied.
