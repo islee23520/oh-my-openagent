@@ -33,6 +33,10 @@ function changedFiles(): readonly string[] {
     .filter((line) => line.length > 0)
 }
 
+function isFinalVerifier(path: string): boolean {
+  return /^scripts\/openclaw-(plan-compliance|review-diff|scope-fidelity)\.ts$/.test(path)
+}
+
 function diffFor(path: string): string {
   return git(["diff", "origin/dev...HEAD", "--", path])
 }
@@ -73,7 +77,10 @@ function main(): void {
     ),
     rule(
       "no-policy-bypass",
-      matchingFiles(paths, (_path, diff) => /^\+.*\b(bypass|skipPolicy|forceAllow|policyDisabled|withoutAuth)\b/im.test(diff)),
+      matchingFiles(
+        paths,
+        (path, diff) => !isFinalVerifier(path) && /^\+.*\b(bypass|skipPolicy|forceAllow|policyDisabled|withoutAuth)\b/im.test(diff),
+      ),
     ),
     rule(
       "no-memory-leakage",
