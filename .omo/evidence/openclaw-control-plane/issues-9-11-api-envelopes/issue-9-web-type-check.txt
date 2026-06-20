@@ -1,0 +1,2 @@
+$ node ./scripts/generate-docs-content.mjs && tsgo --noEmit
+Docs content already current with 9 HTML-compiled docs

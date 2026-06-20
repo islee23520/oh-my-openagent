@@ -1,0 +1,3 @@
+Port 43109 cleanup check
+invocation: lsof -nP -iTCP:43109 -sTCP:LISTEN
+result: PASS no listener on 43109
