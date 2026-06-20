@@ -1,4 +1,5 @@
 import * as openclaw from "./index"
+import { appendRuntimeEvent, startRuntimeRun } from "./event-store"
 import { registerMessage, removeSession } from "./session-registry"
 import { getCurrentTmuxSession } from "./tmux"
 import type { OpenClawConfig, WakeResult } from "./types"
@@ -50,6 +51,14 @@ export async function dispatchOpenClawEvent(
   let result: WakeResult | null = null
 
   if (params.config.enabled) {
+    const runtimeRun = startRuntimeRun({
+      rawEvent: params.rawEvent,
+      sessionId: params.context.sessionId,
+      projectPath: params.context.projectPath,
+      tmuxPaneId: params.context.tmuxPaneId,
+      tmuxSession: params.context.tmuxSession,
+    })
+
     for (const event of mapRawEventToOpenClawEvents(params.rawEvent)) {
       result = await openclaw.wakeOpenClaw(params.config, event, {
         sessionId: params.context.sessionId,
@@ -59,6 +68,18 @@ export async function dispatchOpenClawEvent(
         replyTarget: params.context.replyTarget,
         replyThread: params.context.replyThread,
       })
+      if (runtimeRun) {
+        appendRuntimeEvent({
+          runId: runtimeRun.runId,
+          sessionId: runtimeRun.sessionId,
+          rawEvent: params.rawEvent,
+          openclawEvent: event,
+          projectPath: params.context.projectPath,
+          tmuxPaneId: params.context.tmuxPaneId,
+          tmuxSession: params.context.tmuxSession,
+          result,
+        })
+      }
       if (result !== null) break
     }
   }
@@ -66,14 +87,15 @@ export async function dispatchOpenClawEvent(
   if (shouldRegisterReplyCorrelation(result ?? { gateway: "", success: false }, params)) {
     const tmuxSession = params.context.tmuxSession ?? getCurrentTmuxSession()
     const platform = normalizePlatform(result?.platform)
-    if (tmuxSession && platform && params.context.sessionId && params.context.projectPath && params.context.tmuxPaneId) {
+    const messageId = result?.messageId
+    if (tmuxSession && platform && messageId && params.context.sessionId && params.context.projectPath && params.context.tmuxPaneId) {
       registerMessage({
         sessionId: params.context.sessionId,
         tmuxSession,
         tmuxPaneId: params.context.tmuxPaneId,
         projectPath: params.context.projectPath,
         platform,
-        messageId: result!.messageId!,
+        messageId,
         channelId: result?.channelId,
         threadId: result?.threadId,
         createdAt: new Date().toISOString(),
