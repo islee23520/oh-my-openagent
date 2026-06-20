@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "os"
 import { dirname, join } from "path"
 import { fileURLToPath, pathToFileURL } from "url"
+import { createReplyListenerProcessMock } from "./reply-listener-process-mock"
 import { shouldContinuePolling } from "../reply-listener-poll-loop"
 import {
   createPendingReplyListenerState,
@@ -87,10 +88,7 @@ beforeAll(async () => {
     spawnReplyListenerDaemon: (...args: unknown[]) => spawnImplementation(...args),
   }))
 
-  mock.module("../reply-listener-process", () => ({
-    isReplyListenerProcessRunning: (pid: number) => livePids.has(pid),
-    isReplyListenerDaemonProcess: async (pid: number) => daemonPids.has(pid),
-  }))
+  mock.module("../reply-listener-process", () => createReplyListenerProcessMock({ livePids, daemonPids }))
 
   mock.module("../tmux", () => ({
     isTmuxAvailable: async () => true,

@@ -75,3 +75,17 @@ export interface WakeResult {
   channelId?: string
   threadId?: string
 }
+
+export type {
+  OpenClawActionType,
+  OpenClawCardAction,
+  OpenClawCardSeverity,
+  OpenClawEnvelope,
+  OpenClawEnvelopeComponentId,
+  OpenClawEnvelopeValidationFailure,
+  OpenClawEnvelopeValidationResult,
+  OpenClawPolicyDecision,
+  OpenClawRenderableCard,
+  OpenClawRuntimeStatus,
+  OpenClawValidationStatus,
+} from "./openclaw-envelope"
