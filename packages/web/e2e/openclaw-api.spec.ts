@@ -1,11 +1,6 @@
-import { randomUUID } from "node:crypto"
-import { appendFileSync, mkdirSync, readFileSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { readFileSync } from "node:fs"
 import { test, expect } from "@playwright/test"
-
-const workspaceRoot = resolve(__dirname, "../../..")
-const evidenceDir = join(workspaceRoot, ".omo/evidence/openclaw-control-plane/issues-9-11-api-envelopes")
-const secretRawEvent = "prompt: OPENCLAW_SECRET_DO_NOT_LEAK"
+import { runtimeStorePath, seedRuntimeStore } from "./openclaw-api-fixtures"
 
 interface SessionsBody {
   readonly data: ReadonlyArray<{
@@ -17,7 +12,11 @@ interface SessionsBody {
 }
 
 interface RunsBody {
-  readonly data: ReadonlyArray<{ readonly runId: string; readonly sessionId: string; readonly rawEvent?: string }>
+  readonly data: ReadonlyArray<{
+    readonly runId: string
+    readonly sessionId: string
+    readonly rawEvent?: string
+  }>
 }
 
 interface EventsBody {
@@ -55,102 +54,12 @@ interface ConnectorsBody {
   }>
 }
 
-interface SeededRuntimeStore { readonly firstRunId: string; readonly secondRunId: string }
-
-function seedRuntimeStore(sessionId: string): SeededRuntimeStore {
-  mkdirSync(evidenceDir, { recursive: true })
-  const dataHome = process.env.XDG_DATA_HOME
-  expect(dataHome).toBeTruthy()
-  const storePath = join(dataHome ?? "", "opencode/storage/openclaw/runtime-events.jsonl")
-  mkdirSync(join(dataHome ?? "", "opencode/storage/openclaw"), { recursive: true })
-  const firstTimestamp = new Date("2026-06-20T00:00:00.000Z").toISOString()
-  const secondTimestamp = new Date("2026-06-20T00:01:00.000Z").toISOString()
-  const firstRunId = randomUUID()
-  const secondRunId = randomUUID()
-  const runtimeContext = { projectPath: "/tmp/openclaw-api-project", tmuxPaneId: "%9", tmuxSession: "qa-openclaw-api" }
-  const records = [
-    {
-      kind: "session",
-      sessionId,
-      ...runtimeContext,
-      createdAt: firstTimestamp,
-      updatedAt: secondTimestamp,
-    },
-    {
-      kind: "run",
-      runId: firstRunId,
-      sessionId,
-      rawEvent: secretRawEvent,
-      ...runtimeContext,
-      startedAt: firstTimestamp,
-    },
-    {
-      kind: "run",
-      runId: secondRunId,
-      sessionId,
-      rawEvent: secretRawEvent,
-      ...runtimeContext,
-      startedAt: secondTimestamp,
-    },
-    {
-      kind: "event",
-      runId: firstRunId,
-      sessionId,
-      rawEvent: secretRawEvent,
-      openclawEvent: "session-start",
-      sequence: 1,
-      correlationId: randomUUID(),
-      ...runtimeContext,
-      createdAt: firstTimestamp,
-      gateway: "gateway",
-      success: true,
-      messageId: `message-${sessionId}`,
-      platform: "discord",
-    },
-    {
-      kind: "event",
-      runId: secondRunId,
-      sessionId,
-      rawEvent: secretRawEvent,
-      openclawEvent: "turn-complete",
-      sequence: 1,
-      correlationId: randomUUID(),
-      ...runtimeContext,
-      createdAt: secondTimestamp,
-      gateway: "gateway",
-      success: true,
-      messageId: `message-${sessionId}-2`,
-      platform: "discord",
-    },
-    {
-      kind: "ledger",
-      ledgerId: randomUUID(),
-      runId: firstRunId,
-      sessionId,
-      rawEvent: secretRawEvent,
-      openclawEvent: "session-start",
-      status: "success",
-      ...runtimeContext,
-      createdAt: firstTimestamp,
-      gateway: "gateway",
-      messageId: `message-${sessionId}`,
-      platform: "discord",
-    },
-  ]
-  appendFileSync(storePath, records.map((record) => JSON.stringify(record)).join("\n") + "\n", "utf-8")
-  return { firstRunId, secondRunId }
-}
-
-function runtimeStorePath(): string {
-  const dataHome = process.env.XDG_DATA_HOME
-  expect(dataHome).toBeTruthy()
-  return join(dataHome ?? "", "opencode/storage/openclaw/runtime-events.jsonl")
-}
-
 test.describe("OpenClaw read API", () => {
   test.describe.configure({ mode: "serial" })
 
-  test("returns empty collections when the runtime store has no matching session", async ({ request }) => {
+  test("returns empty collections when the runtime store has no matching session", async ({
+    request,
+  }) => {
     // given
     const sessionId = "qa-session-9-empty"
 
@@ -188,11 +97,21 @@ test.describe("OpenClaw read API", () => {
     const ledger = await request.get(`/api/openclaw/ledger?sessionId=${sessionId}`)
     const connectors = await request.get(`/api/openclaw/connectors?sessionId=${sessionId}`)
     const pagedEvents = await request.get(`/api/openclaw/events?sessionId=${sessionId}&limit=1`)
-    const nextEvents = await request.get(`/api/openclaw/events?sessionId=${sessionId}&limit=1&cursor=1`)
-    const filteredRun = await request.get(`/api/openclaw/runs?sessionId=${sessionId}&runId=${seeded.firstRunId}`)
-    const filteredEvent = await request.get(`/api/openclaw/events?sessionId=${sessionId}&openclawEvent=turn-complete`)
-    const filteredLedger = await request.get(`/api/openclaw/ledger?sessionId=${sessionId}&status=success`)
-    const filteredConnector = await request.get(`/api/openclaw/connectors?sessionId=${sessionId}&platform=discord`)
+    const nextEvents = await request.get(
+      `/api/openclaw/events?sessionId=${sessionId}&limit=1&cursor=1`,
+    )
+    const filteredRun = await request.get(
+      `/api/openclaw/runs?sessionId=${sessionId}&runId=${seeded.firstRunId}`,
+    )
+    const filteredEvent = await request.get(
+      `/api/openclaw/events?sessionId=${sessionId}&openclawEvent=turn-complete`,
+    )
+    const filteredLedger = await request.get(
+      `/api/openclaw/ledger?sessionId=${sessionId}&status=success`,
+    )
+    const filteredConnector = await request.get(
+      `/api/openclaw/connectors?sessionId=${sessionId}&platform=discord`,
+    )
     const health = await request.get("/api/openclaw/health")
 
     // then
@@ -225,17 +144,27 @@ test.describe("OpenClaw read API", () => {
     expect(sessionsBody.data[0]?.ledgerCount).toBeGreaterThanOrEqual(1)
     expect(runsBody.data[0]?.sessionId).toBe(sessionId)
     expect(runsBody.data[0]?.runId).toBe(seeded.secondRunId)
-    expect(runsBody.data.some((run) => run.rawEvent?.includes("OPENCLAW_SECRET_DO_NOT_LEAK") === true)).toBe(false)
+    expect(
+      runsBody.data.some((run) => run.rawEvent?.includes("OPENCLAW_SECRET_DO_NOT_LEAK") === true),
+    ).toBe(false)
     expect(eventsBody.data[0]?.sessionId).toBe(sessionId)
     expect(eventsBody.data[0]?.runId).toBe(seeded.secondRunId)
     expect(eventsBody.data[0]?.openclawEvent).toBe("turn-complete")
     expect(eventsBody.page.nextCursor).toBe(null)
-    expect(eventsBody.data.some((event) => event.rawEvent?.includes("OPENCLAW_SECRET_DO_NOT_LEAK") === true)).toBe(false)
+    expect(
+      eventsBody.data.some(
+        (event) => event.rawEvent?.includes("OPENCLAW_SECRET_DO_NOT_LEAK") === true,
+      ),
+    ).toBe(false)
     expect(ledgerBody.data[0]?.sessionId).toBe(sessionId)
     expect(ledgerBody.data[0]?.runId).toBe(seeded.firstRunId)
     expect(ledgerBody.data[0]?.openclawEvent).toBe("session-start")
     expect(ledgerBody.data[0]?.status).toBe("success")
-    expect(ledgerBody.data.some((entry) => entry.rawEvent?.includes("OPENCLAW_SECRET_DO_NOT_LEAK") === true)).toBe(false)
+    expect(
+      ledgerBody.data.some(
+        (entry) => entry.rawEvent?.includes("OPENCLAW_SECRET_DO_NOT_LEAK") === true,
+      ),
+    ).toBe(false)
     expect(connectorsBody.data[0]).toMatchObject({
       connectorId: "discord:gateway",
       platform: "discord",
@@ -267,7 +196,9 @@ test.describe("OpenClaw read API", () => {
     const before = readFileSync(storePath, "utf-8")
 
     // when
-    const response = await request.get(`/api/openclaw/events?sessionId=${sessionId}&cursor=bad-cursor`)
+    const response = await request.get(
+      `/api/openclaw/events?sessionId=${sessionId}&cursor=bad-cursor`,
+    )
 
     // then
     expect(response.status()).toBe(400)
