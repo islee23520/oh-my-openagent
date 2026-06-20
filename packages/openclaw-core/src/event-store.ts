@@ -218,6 +218,16 @@ export function appendRuntimeEvent(event: RuntimeEventAppend): boolean {
   )
 }
 
+export function appendRuntimeLedgerEntry(entry: RuntimeLedgerEntryRecord): boolean {
+  return withRuntimeStoreLock(
+    () => {
+      appendRecordsUnsafe([entry])
+      return true
+    },
+    () => false,
+  )
+}
+
 export function loadRuntimeEventStoreRecords(): RuntimeEventStoreRecord[] {
   return withRuntimeStoreLock(
     () => readRecordsUnsafe(),
