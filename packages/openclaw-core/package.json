@@ -17,7 +17,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsgo --noEmit -p tsconfig.json",
-    "test": "bun test src/*.test.ts src/**/*.test.ts"
+    "test": "bun test src/*.test.ts src/**/*.test.ts",
+    "openclaw:probe-envelope": "bun src/probes/openclaw-probe-envelope.ts"
   },
   "dependencies": {
     "@oh-my-opencode/tmux-core": "workspace:*",
