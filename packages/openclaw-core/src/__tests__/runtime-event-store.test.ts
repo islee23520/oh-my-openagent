@@ -2,13 +2,19 @@ import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { getRuntimeEventStorePath } from "../event-store-paths"
 import * as openclawModule from "../index"
 import { dispatchOpenClawEvent } from "../runtime-dispatch"
+import { resetRegistryPathCacheForTest } from "../session-registry-paths"
 import type { OpenClawConfig } from "../types"
 
 const originalXdgDataHome = process.env.XDG_DATA_HOME
 const tempDataHome = mkdtempSync(join(tmpdir(), "openclaw-runtime-store-"))
+const probeScriptPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../openclaw-runtime-store-probe.ts",
+)
 
 function createConfig(): OpenClawConfig {
   return {
@@ -28,6 +34,7 @@ function createConfig(): OpenClawConfig {
 
 beforeEach(() => {
   process.env.XDG_DATA_HOME = tempDataHome
+  resetRegistryPathCacheForTest()
   const runtimeStoreDir = dirname(getRuntimeEventStorePath())
   rmSync(runtimeStoreDir, { recursive: true, force: true })
   mkdirSync(runtimeStoreDir, { recursive: true })
@@ -40,6 +47,7 @@ afterEach(() => {
 afterAll(() => {
   if (originalXdgDataHome === undefined) delete process.env.XDG_DATA_HOME
   else process.env.XDG_DATA_HOME = originalXdgDataHome
+  resetRegistryPathCacheForTest()
 
   rmSync(tempDataHome, { recursive: true, force: true })
 })
@@ -158,8 +166,8 @@ describe("runtime event store", () => {
     // when
     const result = Bun.spawnSync({
       cmd: [
-        "bun",
-        "src/openclaw-runtime-store-probe.ts",
+        process.execPath,
+        probeScriptPath,
         "--session",
         "probe-restart-test",
         "--events",
