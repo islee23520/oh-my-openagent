@@ -17,17 +17,27 @@ const command = process.argv[2];
 const subcommand = process.argv[3];
 type HookCliEventName = "SessionStart" | "UserPromptSubmit" | "PostToolUse" | "PostCompact";
 
+processStdout.on("error", consumeStreamError);
+
 if (command === "hook" && subcommand === "session-start") {
-	await runHookCli("SessionStart");
+	await runHookCliSafely("SessionStart");
 } else if (command === "hook" && subcommand === "user-prompt-submit") {
-	await runHookCli("UserPromptSubmit");
+	await runHookCliSafely("UserPromptSubmit");
 } else if (command === "hook" && subcommand === "post-tool-use") {
-	await runHookCli("PostToolUse");
+	await runHookCliSafely("PostToolUse");
 } else if (command === "hook" && subcommand === "post-compact") {
-	await runHookCli("PostCompact");
+	await runHookCliSafely("PostCompact");
 } else {
 	process.stderr.write("Usage: omo-rules hook [session-start|user-prompt-submit|post-tool-use|post-compact]\n");
 	process.exitCode = 1;
+}
+
+async function runHookCliSafely(eventName: HookCliEventName): Promise<void> {
+	try {
+		await runHookCli(eventName);
+	} catch (error) {
+		process.stderr.write(`[omo-rules] ${eventName} hook skipped after error: ${formatError(error)}\n`);
+	}
 }
 
 async function runHookCli(eventName: HookCliEventName): Promise<void> {
@@ -38,9 +48,7 @@ async function runHookCli(eventName: HookCliEventName): Promise<void> {
 	const pluginDataRoot = process.env["PLUGIN_DATA"];
 	const options: CodexRulesHookOptions = pluginDataRoot === undefined ? {} : { pluginDataRoot };
 	const output = await runHook(eventName, parsed, options);
-	if (output.length > 0) {
-		processStdout.write(output);
-	}
+	await writeStdout(output);
 }
 
 async function runHook(eventName: HookCliEventName, parsed: unknown, options: CodexRulesHookOptions): Promise<string> {
@@ -54,6 +62,10 @@ async function runHook(eventName: HookCliEventName, parsed: unknown, options: Co
 		case "PostCompact":
 			return isCodexPostCompactInput(parsed) ? await runPostCompactHook(parsed, options) : "";
 	}
+}
+
+function formatError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 function parseHookInput(raw: string): unknown | undefined {
@@ -141,3 +153,18 @@ function readStdin(): Promise<string> {
 		});
 	});
 }
+
+function writeStdout(output: string): Promise<void> {
+	if (output.length === 0) return Promise.resolve();
+	return new Promise((resolve, reject) => {
+		processStdout.write(output, (error: Error | null | undefined) => {
+			if (error) {
+				reject(error);
+				return;
+			}
+			resolve();
+		});
+	});
+}
+
+function consumeStreamError(_error: Error): void {}
